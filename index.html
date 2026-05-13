@@ -796,6 +796,18 @@ let topMax   = new Int16Array(NUM_COLS);
 let botMax   = new Int16Array(NUM_COLS);
 let topFloor = new Float32Array(NUM_COLS); // y where column's stack starts
 let botFloor = new Float32Array(NUM_COLS);
+// Float "display" heights used by the renderer. Normally just mirrors topCols/
+// botCols so single-grain drains and avalanche shifts stay crisp. **During a
+// post-flip settle animation** they ease from the pre-flatten shape to the
+// flattened target over SETTLE_ANIM_MS — this is the only place we deliberately
+// decouple display from sim, so the swap-into-flat transition reads as a
+// smooth morph instead of a snap. Normal flow is unaffected.
+let topDisp  = new Float32Array(NUM_COLS);
+let botDisp  = new Float32Array(NUM_COLS);
+let topFrom  = new Float32Array(NUM_COLS); // settle-anim "from" snapshot
+let botFrom  = new Float32Array(NUM_COLS);
+const SETTLE_ANIM_MS = 380;
+let settleAnimMs = 0;
 let totalGrains = 0;
 
 function pickCycleDuration() {
@@ -815,6 +827,11 @@ function rebuildPiles() {
   botMax   = new Int16Array(NUM_COLS);
   topFloor = new Float32Array(NUM_COLS);
   botFloor = new Float32Array(NUM_COLS);
+  topDisp  = new Float32Array(NUM_COLS);
+  botDisp  = new Float32Array(NUM_COLS);
+  topFrom  = new Float32Array(NUM_COLS);
+  botFrom  = new Float32Array(NUM_COLS);
+  settleAnimMs = 0;
 
   let sum = 0;
   for (let i = 0; i < NUM_COLS; i++) {
@@ -1005,6 +1022,34 @@ function tickAvalanche(dt) {
   avalAccum = 0;
   avalanche(topCols, topMax);
   avalanche(botCols, botMax);
+}
+
+function tickDisplay(dt) {
+  // Renderer reads topDisp / botDisp. Normally they track cols exactly so the
+  // visual is grain-accurate. During a settle anim (set in finishFlip), they
+  // ease from the post-swap-pre-flatten snapshot to the flattened cols, so the
+  // user sees the V-shape collapse smoothly instead of snapping.
+  if (settleAnimMs > 0) {
+    settleAnimMs -= dt;
+    const t = settleAnimMs <= 0 ? 1 : 1 - settleAnimMs / SETTLE_ANIM_MS;
+    const e = 1 - Math.pow(1 - t, 3); // ease-out cubic: fast start, gentle land
+    for (let i = 0; i < NUM_COLS; i++) {
+      topDisp[i] = topFrom[i] + (topCols[i] - topFrom[i]) * e;
+      botDisp[i] = botFrom[i] + (botCols[i] - botFrom[i]) * e;
+    }
+    if (settleAnimMs <= 0) {
+      settleAnimMs = 0;
+      for (let i = 0; i < NUM_COLS; i++) {
+        topDisp[i] = topCols[i];
+        botDisp[i] = botCols[i];
+      }
+    }
+    return;
+  }
+  for (let i = 0; i < NUM_COLS; i++) {
+    topDisp[i] = topCols[i];
+    botDisp[i] = botCols[i];
+  }
 }
 
 // ============================================================
@@ -1213,13 +1258,20 @@ function finishFlip() {
     if (botCols[i] > botMax[i]) botCols[i] = botMax[i];
   }
 
-  // Eliminate the inherited central-crater shape in one shot — the pre-flip
-  // top had been drained from center (V-shape), and after swap that V would
-  // sit in the new bot as "sand piled at the edges, valley in the middle",
-  // which reads as physically wrong. flatten() levels both chambers with a
-  // zero-slope tolerance so any high-side spills down into the dip.
+  // Snapshot the post-swap-pre-flatten shape — this is the "from" frame the
+  // renderer will ease away from over SETTLE_ANIM_MS. Without it the V-shape
+  // crater in new-bot would snap to flat in a single frame.
+  for (let i = 0; i < NUM_COLS; i++) {
+    topFrom[i] = topCols[i];
+    botFrom[i] = botCols[i];
+  }
+  // Eliminate the inherited central-crater shape in one shot — pre-flip top
+  // was drained from center, and after swap that V would sit in new bot as
+  // "sand piled at edges, valley in middle". flatten() levels both chambers
+  // with zero-slope tolerance, and the renderer eases from snapshot → flat.
   flatten(topCols, topMax);
   flatten(botCols, botMax);
+  settleAnimMs = SETTLE_ANIM_MS;
 
   let topCarry = 0;
   for (let i = 0; i < NUM_COLS; i++) topCarry += topCols[i];
@@ -1281,6 +1333,7 @@ function frame(now) {
   tickDrain(dt);
   stepInFlight(dt, theme);
   tickAvalanche(dt);
+  tickDisplay(dt);
   stepDust(dt);
   stepSparkles(dt);
   stepMotes(dt);
@@ -1312,8 +1365,8 @@ function render(theme) {
   if (theme.additive) ctx.globalCompositeOperation = 'lighter';
 
   // Sand piles
-  drawColumns(theme, topCols, topFloor);
-  drawColumns(theme, botCols, botFloor);
+  drawColumns(theme, topDisp, topFloor);
+  drawColumns(theme, botDisp, botFloor);
 
   // In-flight stream
   for (let i = 0; i < inFlight.length; i++) {
@@ -1612,11 +1665,13 @@ function drawColumns(theme, cols, floorArr) {
 
   // Find continuous non-empty runs (the pile can have empty center funnel +
   // two side wings, in which case we draw each wing as a separate filled shape).
+  // Threshold instead of `> 0` since cols here is a float display array.
+  const EPS = 0.05;
   let i = 0;
   while (i < NUM_COLS) {
-    if (cols[i] <= 0) { i++; continue; }
+    if (cols[i] <= EPS) { i++; continue; }
     const start = i;
-    while (i < NUM_COLS && cols[i] > 0) i++;
+    while (i < NUM_COLS && cols[i] > EPS) i++;
     const end = i - 1;
     drawPileRun(cols, floorArr, start, end, base, dark);
     drawPileRunTexture(cols, floorArr, start, end, palette, additive, theme.sandGlow);
@@ -1652,20 +1707,32 @@ function drawPileRun(cols, floorArr, start, end, baseColor, darkColor) {
 }
 
 function drawPileRunTexture(cols, floorArr, start, end, palette, additive, sandGlow) {
-  // Only render texture on top ~3 grain rows of each column — that's the visible surface.
+  // Only render texture on top ~3 grain rows of each column — that's the visible
+  // surface. cols here is the float display array: render `fullGrains` integer
+  // rows at full opacity, plus a topmost partial grain at row=fullGrains whose
+  // alpha = fractional part. Without the partial grain the texture would pop in
+  // discrete steps every time displayCol crosses an integer during settle anim.
   for (let j = start; j <= end; j++) {
     const h = cols[j];
-    if (h === 0) continue;
+    if (h <= 0.05) continue;
+    const fullGrains = Math.floor(h);
+    const fracTop = h - fullGrains; // 0..1
     const xCenter = cxPx + (j - (NUM_COLS - 1) / 2) * COL_W;
     const floorY = floorArr[j];
-    const visStart = Math.max(0, h - 3);
-    for (let k = visStart; k < h; k++) {
+    const visStart = Math.max(0, fullGrains - 3);
+    // topK iterates: integer rows visStart..fullGrains-1 at full alpha, then
+    // fullGrains at fractional alpha (skipped if frac is tiny).
+    const lastK = fracTop > 0.05 ? fullGrains : fullGrains - 1;
+    for (let k = visStart; k <= lastK; k++) {
+      const isFractional = (k === fullGrains && fracTop > 0.05);
+      const alpha = isFractional ? fracTop : 1;
       const jx = ((Math.sin(j * 7.31 + k * 3.97) + Math.cos(j * 1.93 + k * 11.0)) * 0.32) * COL_W * 0.40;
       const jy = (Math.sin(j * 4.21 + k * 5.13)) * GRAIN_H * 0.14;
       const gx = xCenter + jx;
       const gy = floorY - ((k + 0.5) * GRAIN_H) + jy;
       const tone = (Math.sin(j * 9.7 + k * 6.3) + Math.cos(j * 2.1 + k * 13.1)) * 0.5 + 0.5;
       const paletteIdx = Math.floor(tone * (palette.length - 0.001));
+      ctx.globalAlpha = alpha;
       ctx.fillStyle = palette[paletteIdx];
       const r = GRAIN_R * (0.55 + ((tone * 2 + j * 0.13) % 1) * 0.30);
       ctx.beginPath();
@@ -1679,6 +1746,7 @@ function drawPileRunTexture(cols, floorArr, start, end, palette, additive, sandG
       }
     }
   }
+  ctx.globalAlpha = 1;
 }
 
 function drawGrain(theme, x, y, size, hueIdx) {
