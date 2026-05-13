@@ -965,8 +965,9 @@ function triggerFlip() {
   hideHint();
   spawnFlipBurst();
   playFlipSound();
-  stageFlipped = !stageFlipped;
-  stage.classList.toggle('is-flipped', stageFlipped);
+  // CSS rotation toggles NOW — this animates the visible spin over FLIP_DURATION_MS
+  cssRotated = !cssRotated;
+  stage.classList.toggle('is-flipped', cssRotated);
   cyclePhase = 'flipping';
   phaseTimer = 0;
 }
@@ -976,7 +977,12 @@ function triggerFlip() {
 // ============================================================
 const FLIP_DURATION_MS = 850;
 let flipState = { active: false, t: 0 }; // legacy, kept for spawnFlipBurst calls
-let stageFlipped = false;
+let cssRotated = false;     // CSS rotation state — toggles at flip *start* so the
+                            //   animation plays. The visible rotation = this only.
+let canvasRotated = false;  // Canvas internal 180° transform — toggles at flip
+                            //   *end* together with sim state swap. Net effect:
+                            //   sim coord "top" always appears at screen top after
+                            //   the rotation animation settles.
 
 function startFlip() {
   // Public entry point — user tap, sensor flip, auto-empty all funnel here.
@@ -1003,6 +1009,11 @@ function finishFlip() {
   emptyTimer = 0;
   phaseTimer = 0;
   flipState = { active: false, t: 0 };
+  // Canvas internal rotation toggles HERE — paired with the sim state swap
+  // above. The CSS rotation finished its animation; from this frame on, the
+  // canvas content is drawn 180°-pre-rotated so that CSS × canvas = identity
+  // (i.e. sim's "top" appears at screen top, drain visually goes top→bottom).
+  canvasRotated = !canvasRotated;
   // Fresh random target duration for the upcoming drain
   pickCycleDuration();
   DRAIN_INTERVAL_MS = Math.max(20, (cycleTargetSec * 1000) / Math.max(1, topCarry || totalGrains));
@@ -1066,6 +1077,15 @@ function frame(now) {
 function render(theme) {
   ctx.clearRect(0, 0, stageSize, stageSize);
 
+  // Compensate CSS rotation: when canvasRotated, pre-rotate the canvas content
+  // by 180° so the CSS × canvas transform is identity. This keeps sim's "top"
+  // chamber visually at screen top across any number of flips.
+  if (canvasRotated) {
+    ctx.save();
+    ctx.translate(stageSize, stageSize);
+    ctx.scale(-1, -1);
+  }
+
   // Order matters: atmosphere behind everything, then vessel chamber tint,
   // then sand piles, then stream/dust, then glass outline glow on top.
   drawAtmosphere(theme);
@@ -1116,6 +1136,8 @@ function render(theme) {
   drawCapRings(theme);
 
   if (window.__renderDebugOutline) drawDebugChamberOutline();
+
+  if (canvasRotated) ctx.restore();
 }
 
 // ============================================================
