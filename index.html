@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#181010" />
+<title>Hourglass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;1,400;1,500&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body {
+    border-radius: 24px;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    font-family: "Cormorant Garamond", "Times New Roman", serif;
+    background: #060306;
+    position: relative;
+    color: #e8d4b5;
+    transition: background 1.2s ease;
+  }
+  body[data-theme="sahara"]  { background: radial-gradient(ellipse at 50% 38%, #3a1c10 0%, #1a0a06 60%, #060201 100%); }
+  body[data-theme="geode"]   { background: radial-gradient(ellipse at 50% 38%, #1e1233 0%, #0c0820 60%, #02010a 100%); }
+  body[data-theme="glowsand"]{ background: radial-gradient(ellipse at 50% 38%, #051028 0%, #020610 60%, #000204 100%); }
+
+  #stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* Theme switcher pill (top-center) */
+  .switcher {
+    position: absolute;
+    top: max(18px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.30);
+    backdrop-filter: blur(14px) saturate(120%);
+    -webkit-backdrop-filter: blur(14px) saturate(120%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+    z-index: 10;
+  }
+  .switcher-btn {
+    width: 36px; height: 36px; border: 0; background: transparent;
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: rgba(232, 226, 210, 0.45);
+    transition: color 0.32s ease, background 0.3s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    padding: 0;
+  }
+  .switcher-btn:hover { color: rgba(232, 226, 210, 0.9); }
+  .switcher-btn.is-active { background: rgba(255, 255, 255, 0.10); }
+  .switcher-btn.is-active[data-theme="sahara"]   { color: #f7c890; }
+  .switcher-btn.is-active[data-theme="geode"]    { color: #d4b0ff; }
+  .switcher-btn.is-active[data-theme="glowsand"] { color: #80f8f8; }
+  .switcher-btn svg { display: block; width: 20px; height: 20px; stroke-width: 1.6; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Bottom info strip */
+  .status {
+    position: absolute;
+    bottom: calc(max(20px, env(safe-area-inset-bottom)) + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 11px;
+    align-items: center;
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    color: rgba(232, 220, 200, 0.45);
+    pointer-events: none;
+    z-index: 5;
+    white-space: nowrap;
+  }
+  .status-sep { opacity: 0.5; }
+
+  .poem {
+    position: absolute;
+    bottom: calc(max(20px, env(safe-area-inset-bottom)) + 38px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: "Cormorant Garamond", "Times New Roman", serif;
+    font-style: italic;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    color: rgba(232, 218, 188, 0.66);
+    text-align: center;
+    max-width: 86vw;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 1.6s ease;
+    line-height: 1.2;
+  }
+  .poem.is-visible { opacity: 1; }
+
+  /* Poster mode (?poster=1) — hide chrome, render title above hourglass */
+  body.is-poster .switcher,
+  body.is-poster .hint,
+  body.is-poster .poem,
+  body.is-poster .status { display: none !important; }
+  .poster-title {
+    display: none;
+    position: absolute;
+    top: 11%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    pointer-events: none;
+    z-index: 6;
+  }
+  body.is-poster .poster-title { display: block; }
+  .poster-title .pt-name {
+    font-family: "Cormorant Garamond", "Times New Roman", serif;
+    font-size: 96px;
+    letter-spacing: 0.22em;
+    font-weight: 400;
+    color: rgba(240, 220, 180, 0.96);
+    text-shadow: 0 4px 26px rgba(0,0,0,0.6);
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .poster-title .pt-sub {
+    margin-top: 14px;
+    font-family: "Cormorant Garamond", "Times New Roman", serif;
+    font-style: italic;
+    font-size: 26px;
+    letter-spacing: 0.04em;
+    color: rgba(232, 212, 178, 0.66);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  }
+
+  /* "tap to flip" hint */
+  .hint {
+    position: absolute;
+    bottom: calc(max(20px, env(safe-area-inset-bottom)) + 70px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(232, 220, 200, 0.65);
+    pointer-events: none;
+    z-index: 6;
+    opacity: 0;
+    transition: opacity 1.6s ease;
+  }
+  .hint.is-visible {
+    opacity: 1;
+    animation: hintBreathe 3.4s ease-in-out infinite;
+  }
+  .hint.is-gone { opacity: 0; animation: none; }
+  @keyframes hintBreathe {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
+  }
+</style>
+</head>
+<body data-theme="sahara">
+  <canvas id="stage"></canvas>
+
+  <div class="switcher" id="switcher">
+    <button class="switcher-btn is-active" data-theme="sahara" aria-label="Sahara">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg>
+    </button>
+    <button class="switcher-btn" data-theme="geode" aria-label="Geode">
+      <svg viewBox="0 0 24 24"><path d="M12 3L4 9l3 11h10l3-11z"/><path d="M9 9l3 11M15 9l-3 11M4 9h16"/></svg>
+    </button>
+    <button class="switcher-btn" data-theme="glowsand" aria-label="Glowsand">
+      <svg viewBox="0 0 24 24"><path d="M3 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M3 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="7" cy="6" r="0.8"/><circle cx="14" cy="5" r="0.8"/><circle cx="19" cy="7" r="0.8"/></svg>
+    </button>
+  </div>
+
+  <div class="poster-title">
+    <div class="pt-name">Hourglass</div>
+    <div class="pt-sub">slow, by the grain</div>
+  </div>
+
+  <div class="poem" id="poem"></div>
+  <div class="hint" id="hint">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3-3 3 3"/><path d="M12 8v8"/><circle cx="12" cy="12" r="10"/></svg>
+    Tap glass
+  </div>
+  <div class="status" id="status">
+    <span class="status-time" id="status-time">00:00</span>
+    <span class="status-sep">·</span>
+    <span class="status-clim" id="status-clim">—</span>
+    <span class="status-sep">·</span>
+    <span class="status-temp" id="status-temp">—</span>
+  </div>
+
+<script>
+'use strict';
+
+// ============================================================
+// THEMES
+// ============================================================
+const THEMES = {
+  sahara: {
+    label: 'Sahara',
+    bg:        '#1a0a06',
+    sand:      '#d4a060',
+    sandLight: '#f7d090',
+    sandDark:  '#a06030',
+    wood:      '#5a2812',
+    woodLight: '#8a4a28',
+    woodDark:  '#2a0e04',
+    glassTint: 'rgba(255, 220, 180, 0.04)',
+    glassHi:   'rgba(255, 234, 200, 0.55)',
+    grainGlow: 'rgba(247, 208, 144, 0.12)',
+    accent:    '#f7c890',
+    additive:  false,
+    poems: [
+      'Slow as horizons.',
+      'Each grain a year.',
+      'The dunes are listening.',
+      'Time, distilled.',
+      'Light, kept warm.',
+      'All afternoon turns gold.',
+      'A small desert in glass.',
+      'Patience is a color.',
+      'The sun, exhaled.',
+      'Nothing falls in vain.',
+      'Where caravans rest.',
+      'What memory looks like.'
+    ],
+    climate: ['arid', 'dry', 'still', 'warm', 'hush'],
+    temps:   ['28°C', '34°C', '41°C', '38°C', '31°C', '44°C', '36°C']
+  },
+  geode: {
+    label: 'Geode',
+    bg:        '#0c0820',
+    sand:      '#b894f0',
+    sandLight: '#e0c8ff',
+    sandDark:  '#6c4ab0',
+    wood:      '#a07840',
+    woodLight: '#d4a560',
+    woodDark:  '#4a2e10',
+    glassTint: 'rgba(220, 200, 255, 0.05)',
+    glassHi:   'rgba(240, 220, 255, 0.55)',
+    grainGlow: 'rgba(224, 200, 255, 0.14)',
+    accent:    '#d4b0ff',
+    additive:  false,
+    poems: [
+      'Pressure becomes prism.',
+      'The dark refines.',
+      'Crystals, patient.',
+      'Slow eons in violet.',
+      'Held in the deep.',
+      'Some light is hidden.',
+      'The earth’s slow heart.',
+      'Stones learn to glow.',
+      'What waits underground.',
+      'A geode of minutes.',
+      'Color, geological.',
+      'The cave keeps its time.'
+    ],
+    climate: ['deep', 'cool', 'silent', 'still', 'inner'],
+    temps:   ['11°C', '8°C', '14°C', '12°C', '9°C', '10°C', '13°C']
+  },
+  glowsand: {
+    label: 'Glowsand',
+    bg:        '#020610',
+    sand:      '#3fc0c8',
+    sandLight: '#a0f8f8',
+    sandDark:  '#1a6068',
+    wood:      '#5a6c78',
+    woodLight: '#8a9ca8',
+    woodDark:  '#2a3038',
+    glassTint: 'rgba(160, 230, 240, 0.04)',
+    glassHi:   'rgba(200, 245, 255, 0.55)',
+    grainGlow: 'rgba(160, 248, 248, 0.22)',
+    accent:    '#80f8f8',
+    additive:  true,
+    poems: [
+      'Plankton remember light.',
+      'The deep counts softly.',
+      'Tides in a bottle.',
+      'Smaller than starlight.',
+      'Silver in the trench.',
+      'Mid-ocean glow.',
+      'Currents of small fire.',
+      'The night has its glitter.',
+      'Below the surface, a hymn.',
+      'Pulse of the abyss.',
+      'Bioluminescent slow.',
+      'A whole sea, distilled.'
+    ],
+    climate: ['abyssal', 'cold', 'lit', 'still', 'fathom'],
+    temps:   ['320 m', '480 m', '600 m', '750 m', '410 m', '550 m', '690 m']
+  }
+};
+
+// ============================================================
+// CANVAS SETUP
+// ============================================================
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * DPR);
+  canvas.height = Math.floor(H * DPR);
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  computeGeometry();
+  rebuildPiles();
+}
+
+// ============================================================
+// HOURGLASS GEOMETRY
+// ============================================================
+// Hourglass coordinates (in screen space, hourglass-local origin at center):
+//   - cx, cy: center on screen
+//   - half-height H/2, divided into:
+//       cap (top wood frame) ~ 22px tall
+//       top chamber outline (inverted-V): wide at top, neck at center
+//       neck channel: a small rectangle around y=0
+//       bottom chamber outline (V): neck at center, wide at bottom
+//       cap (bottom wood frame) ~ 22px tall
+const GEO = {
+  cx: 0, cy: 0,
+  totalH: 0,
+  totalW: 0,
+  chamberH: 0,
+  capH: 22,
+  neckH: 12,
+  neckW: 18,
+  topY: 0,      // top of upper cap
+  botY: 0,      // bottom of lower cap
+  upperChamberTopY: 0,
+  upperChamberBotY: 0, // = -neckH/2
+  lowerChamberTopY: 0, // = +neckH/2
+  lowerChamberBotY: 0,
+  halfWAtCap: 0,       // half-width at cap (max chamber width)
+  glassEdgeInset: 4,   // inner glass offset from outline
+};
+
+function computeGeometry() {
+  const poster = document.body.classList.contains('is-poster');
+  GEO.totalH = poster ? Math.min(H * 0.55, 620) : Math.min(H * 0.62, 540);
+  GEO.totalW = poster ? Math.min(W * 0.42, 320) : Math.min(W * 0.62, 280);
+  GEO.cx = W / 2;
+  GEO.cy = poster ? H * 0.62 : H / 2 - 28;
+  GEO.chamberH = (GEO.totalH - 2 * GEO.capH - GEO.neckH) / 2;
+  GEO.topY = GEO.cy - GEO.totalH / 2;
+  GEO.botY = GEO.cy + GEO.totalH / 2;
+  GEO.upperChamberTopY = GEO.topY + GEO.capH;
+  GEO.upperChamberBotY = GEO.cy - GEO.neckH / 2;
+  GEO.lowerChamberTopY = GEO.cy + GEO.neckH / 2;
+  GEO.lowerChamberBotY = GEO.botY - GEO.capH;
+  GEO.halfWAtCap = GEO.totalW / 2;
+}
+
+// Half-width of upper chamber outer wall at world Y (y relative to GEO.cy).
+// Upper chamber spans from y=upperChamberTopY-cy (negative, large mag)
+// to y=upperChamberBotY-cy (= -neckH/2).
+// At top y: half-width = halfWAtCap. At bot: half-width = neckW/2.
+function upperWidthAt(y) {
+  const top = GEO.upperChamberTopY - GEO.cy;
+  const bot = GEO.upperChamberBotY - GEO.cy;
+  if (y < top) return GEO.halfWAtCap; // safety
+  if (y > bot) return GEO.neckW / 2;
+  const t = (y - top) / (bot - top);
+  return GEO.halfWAtCap + (GEO.neckW / 2 - GEO.halfWAtCap) * t;
+}
+function lowerWidthAt(y) {
+  const top = GEO.lowerChamberTopY - GEO.cy;
+  const bot = GEO.lowerChamberBotY - GEO.cy;
+  if (y < top) return GEO.neckW / 2;
+  if (y > bot) return GEO.halfWAtCap;
+  const t = (y - top) / (bot - top);
+  return GEO.neckW / 2 + (GEO.halfWAtCap - GEO.neckW / 2) * t;
+}
+
+// ============================================================
+// SAND PILES
+// ============================================================
+// We use two sand pools: top and bottom. Each grain has a settled (x,y).
+// Drain: pop the lowest grain in top, mark in-flight; in-flight grains fall
+// through neck into the bottom; bottom slots fill in pre-computed order
+// (center-floor first, alternating outward).
+//
+// Pre-computed top targets: filled from BOTTOM of upper chamber up to top,
+// row by row. Lowest rows are filled first → drain order is "highest = last in".
+// Actually we want LOWEST grain to drain first (the one nearest the neck
+// mouth), so we drain by popping from the LAST-PUSHED (which is upper rows)?
+// No: lowest = first placed. We want lowest to drain first → drain = shift
+// from front. Use a simple sorted approach: sort by y desc (lowest first).
+//
+// Bottom targets: filled from FLOOR upward. So bottom_settled.push(target),
+// next-empty-target is bottom_targets[bottom_settled.length].
+
+const GRAIN_RADIUS = 1.5;
+const GRAIN_SPACE = 3.4;
+const GRAIN_COUNT_TARGET = 460;
+const DRAIN_INTERVAL_MS = 60;
+const POST_EMPTY_PAUSE_MS = 4500;
+const FLIP_DURATION_MS = 850;
+
+let topTargets = [];      // upper-chamber positions, sorted by y descending (lowest first = drains first)
+let bottomTargets = [];   // lower-chamber positions, sorted by y descending (floor first = settles first)
+let topSettled = [];      // remaining settled grains in top
+let bottomSettled = [];   // accumulated settled grains in bottom
+let bottomReservedCount = 0; // how many bottom-target slots are spoken-for (in-flight + settled)
+let inFlight = [];        // {x, y, vx, vy, target} grains streaming through neck
+let drainAccum = 0;       // ms accumulator for drain
+let emptyTimer = 0;       // ms since top went empty (for auto-flip)
+let flipState = { active: false, t: 0 };
+
+function packChamber(topY, botY, widthFn, count) {
+  // Fill row-by-row from BOTTOM up.
+  const pts = [];
+  let y = botY - GRAIN_RADIUS - 1;
+  const rowH = GRAIN_SPACE * 0.92;
+  while (y > topY + GRAIN_RADIUS && pts.length < count) {
+    const halfW = widthFn(y) - GRAIN_RADIUS - 1;
+    if (halfW < GRAIN_RADIUS) { y -= rowH; continue; }
+    const rowCols = Math.max(1, Math.floor((halfW * 2) / GRAIN_SPACE));
+    const span = (rowCols - 1) * GRAIN_SPACE;
+    for (let i = 0; i < rowCols; i++) {
+      const x = -span / 2 + i * GRAIN_SPACE + (Math.random() - 0.5) * 1.2;
+      const yy = y + (Math.random() - 0.5) * 0.7;
+      pts.push({ x, y: yy });
+      if (pts.length >= count) break;
+    }
+    y -= rowH;
+  }
+  return pts;
+}
+
+function rebuildPiles() {
+  // Local y coords (origin at GEO.cy, +y down).
+  const ucTop = GEO.upperChamberTopY - GEO.cy; // most negative
+  const ucBot = GEO.upperChamberBotY - GEO.cy; // ≈ -neckH/2
+  const lcTop = GEO.lowerChamberTopY - GEO.cy; // ≈ +neckH/2
+  const lcBot = GEO.lowerChamberBotY - GEO.cy; // most positive
+
+  // Angle of repose ≈ 33° for sand → cot ≈ 1.54
+  const REPOSE_RATIO = 1.54;
+
+  // --- Top chamber: drain forms a FUNNEL.
+  // Order grains so center-near-neck drains first, expanding outward + upward.
+  const topPack = packChamber(ucTop, ucBot, upperWidthAt, GRAIN_COUNT_TARGET);
+  topPack.forEach(p => { p._score = Math.abs(p.x) + REPOSE_RATIO * (ucBot - p.y); });
+  topPack.sort((a, b) => a._score - b._score);
+  topTargets = topPack;
+
+  // --- Bottom chamber: settle forms a CONE.
+  // Order so center-floor fills first, then expands outward + upward.
+  const bottomPack = packChamber(lcTop, lcBot, lowerWidthAt, GRAIN_COUNT_TARGET);
+  bottomPack.forEach(p => { p._score = Math.abs(p.x) + REPOSE_RATIO * (lcBot - p.y); });
+  bottomPack.sort((a, b) => a._score - b._score);
+  bottomTargets = bottomPack;
+
+  topSettled = topTargets.slice();
+  bottomSettled = [];
+  bottomReservedCount = 0;
+  inFlight = [];
+  drainAccum = 0;
+  emptyTimer = 0;
+  flipState = { active: false, t: 0 };
+}
+
+// ============================================================
+// FLIP
+// ============================================================
+function startFlip() {
+  if (flipState.active) return;
+  flipState = { active: true, t: 0 };
+  hideHint();
+  spawnFlipBurst();
+}
+
+function finishFlip() {
+  // After visually rotating 180°, what was in the bottom is now on top.
+  // topTargets is sorted lowest-first; refilling the lowest N slots gives a
+  // coherent pile of that height (drain still pops lowest = newest first).
+  const carryCount = bottomSettled.length;
+  topSettled = topTargets.slice(0, carryCount);
+  bottomSettled = [];
+  bottomReservedCount = 0;
+  inFlight = [];
+  drainAccum = 0;
+  emptyTimer = 0;
+  flipState = { active: false, t: 0 };
+}
+
+// ============================================================
+// SAND SIMULATION
+// ============================================================
+function startDrain(dt) {
+  if (flipState.active) return;
+  if (topSettled.length === 0) return;
+  drainAccum += dt;
+  while (drainAccum >= DRAIN_INTERVAL_MS && topSettled.length > 0) {
+    drainAccum -= DRAIN_INTERVAL_MS;
+    // Pop the lowest settled grain in top (front of array — sorted desc by y)
+    const grain = topSettled.shift();
+    // Launch it through the neck with a small inward velocity
+    inFlight.push({
+      x: grain.x + (Math.random() - 0.5) * 1.2,
+      y: grain.y,
+      vx: -grain.x * 1.2, // bias toward neck center
+      vy: 30 + Math.random() * 20,
+      target: null // assigned when entering bottom chamber
+    });
+  }
+}
+
+function stepInFlight(dt) {
+  const dts = dt / 1000;
+  const gx = gravityRef.x * 800;
+  const gy = gravityRef.y * 800;
+  for (let i = inFlight.length - 1; i >= 0; i--) {
+    const p = inFlight[i];
+    p.vx += gx * dts;
+    p.vy += gy * dts;
+    // Damp velocity slightly to avoid runaway
+    p.vx *= 0.995;
+    p.x += p.vx * dts;
+    p.y += p.vy * dts;
+
+    // Neck constraint (clamp x within neck width while inside neck region)
+    const inNeck = p.y > -GEO.neckH / 2 - 2 && p.y < GEO.neckH / 2 + 2;
+    if (inNeck) {
+      const limit = GEO.neckW / 2 - GRAIN_RADIUS - 0.5;
+      if (p.x > limit)  { p.x = limit;  p.vx = -Math.abs(p.vx) * 0.3; }
+      if (p.x < -limit) { p.x = -limit; p.vx = Math.abs(p.vx) * 0.3; }
+    }
+
+    // Once below neck, reserve the next bottom slot
+    if (!p.target && p.y > GEO.lowerChamberTopY - GEO.cy + 4) {
+      const next = bottomTargets[bottomReservedCount];
+      if (next) {
+        p.target = next;
+        bottomReservedCount++;
+      } else {
+        // Bottom is full — just disappear
+        inFlight.splice(i, 1);
+        continue;
+      }
+    }
+
+    // If we have a target, magnetize toward it
+    if (p.target) {
+      const dx = p.target.x - p.x;
+      const dy = p.target.y - p.y;
+      const dist = Math.hypot(dx, dy);
+      // Settle if close OR if we've passed target.y (overshoot)
+      if (dist < 4 || p.y >= p.target.y - 0.5) {
+        bottomSettled.push(p.target);
+        inFlight.splice(i, 1);
+        continue;
+      }
+      // Steering pull (stronger when farther so high-velocity grains still curve in)
+      if (dist < 90) {
+        const pull = 2200 * dts;
+        p.vx += (dx / dist) * pull;
+        p.vy += (dy / dist) * pull;
+        // Damp vy to avoid overshoot
+        p.vy *= 0.92;
+      }
+    }
+
+    // Safety: if a grain falls way out of bounds, drop it
+    if (p.y > GEO.totalH || p.y < -GEO.totalH || Math.abs(p.x) > GEO.totalW) {
+      inFlight.splice(i, 1);
+    }
+  }
+}
+
+// ============================================================
+// SPARKLES (visual disturbance on tap)
+// ============================================================
+let sparkles = []; // {x, y, life, max}
+function spawnSparkle(worldX, worldY) {
+  for (let i = 0; i < 6; i++) {
+    sparkles.push({
+      x: worldX + (Math.random() - 0.5) * 6,
+      y: worldY + (Math.random() - 0.5) * 6,
+      vx: (Math.random() - 0.5) * 30,
+      vy: -20 - Math.random() * 30,
+      life: 0,
+      max: 600 + Math.random() * 400
+    });
+  }
+}
+function spawnFlipBurst() {
+  for (let i = 0; i < 30; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const dist = Math.random() * 30;
+    sparkles.push({
+      x: Math.cos(ang) * dist,
+      y: Math.sin(ang) * dist,
+      vx: Math.cos(ang) * (40 + Math.random() * 80),
+      vy: Math.sin(ang) * (40 + Math.random() * 80),
+      life: 0,
+      max: 700 + Math.random() * 500
+    });
+  }
+}
+function stepSparkles(dt) {
+  const dts = dt / 1000;
+  for (let i = sparkles.length - 1; i >= 0; i--) {
+    const s = sparkles[i];
+    s.life += dt;
+    if (s.life > s.max) { sparkles.splice(i, 1); continue; }
+    s.vy += 200 * dts;
+    s.x += s.vx * dts;
+    s.y += s.vy * dts;
+  }
+}
+
+// ============================================================
+// SENSOR BRIDGE
+// ============================================================
+// Three paths share one gravity vector + flip detector.
+// 1. Aigram postMessage bridge (TG.ACCELEROMETER) — primary in Aigram embed
+// 2. Telegram.WebApp direct API
+// 3. DOM deviceorientation + devicemotion (Safari standalone w/ permission)
+const gravityRef = { x: 0, y: 1 };       // current gravity unit vector (post-smoothing)
+const gravityRaw = { x: 0, y: 1 };       // immediate raw read
+let lastZSign = 1;
+let zFlipDetector = { value: 1, accum: 0 };
+let sensorActive = false;
+
+function applyAccel(ax, ay, az) {
+  // ax, ay, az in m/s^2 (gravity ~ 9.8). Bail if reading is empty.
+  if ((ax === 0 && ay === 0 && az === 0) || ax == null || ay == null) return;
+  let gx = ax / 9.8;
+  let gy = -ay / 9.8;
+  const m = Math.hypot(gx, gy);
+  if (m > 0.001) { gx /= Math.max(1, m); gy /= Math.max(1, m); }
+  gravityRaw.x = gx;
+  gravityRaw.y = gy;
+  sensorActive = true;
+
+  // Detect flip: z-axis sign change with high magnitude
+  if (typeof az === 'number') {
+    const zSign = az < 0 ? -1 : 1;
+    if (zSign !== lastZSign) {
+      zFlipDetector.accum += 1;
+      if (zFlipDetector.accum > 3 && Math.abs(az) > 6) {
+        lastZSign = zSign;
+        zFlipDetector.accum = 0;
+        onSensorFlip();
+      }
+    } else {
+      zFlipDetector.accum = 0;
+    }
+  }
+}
+
+function applyGamma(gamma, beta) {
+  // gamma: device tilt left/right (-90..90), beta: front-back (-180..180)
+  // Desktop browsers often fire with null values — bail to keep gravity (0,1).
+  if (gamma == null && beta == null) return;
+  if (gamma === 0 && beta === 0) return;
+  const g = ((gamma || 0)) / 45;
+  // beta near 90 = phone held upright → screen-down gravity (0,1).
+  // beta near 0 = phone flat face-up → no preferred y direction.
+  // We only adjust y if beta is meaningful.
+  const b = beta == null ? 90 : beta;
+  // Map: at beta=90, screen-y gravity factor = 1. At beta=0, factor = 0.
+  const yFactor = Math.max(0, Math.min(1, b / 90));
+  gravityRaw.x = Math.max(-1, Math.min(1, g));
+  gravityRaw.y = yFactor;
+  // Normalize to unit
+  const mn = Math.hypot(gravityRaw.x, gravityRaw.y);
+  if (mn > 0.001) { gravityRaw.x /= mn; gravityRaw.y /= mn; }
+  sensorActive = true;
+}
+
+function onSensorFlip() {
+  startFlip();
+}
+
+// --- Aigram postMessage bridge ---
+let aigramActive = false;
+function sendAigram(msg) {
+  if (window.parent && window.parent !== window) {
+    try { window.parent.postMessage(JSON.stringify(msg), '*'); } catch (e) {}
+  }
+}
+window.addEventListener('message', (ev) => {
+  let data = ev.data;
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (e) { return; }
+  }
+  if (!data || !data.eventType) return;
+  if (data.eventType === 'accelerometer_data' || data.eventType === 'TG.ACCELEROMETER') {
+    const d = data.data || data.eventData || {};
+    if (typeof d.x === 'number') {
+      aigramActive = true;
+      sensorActive = true;
+      applyAccel(d.x, d.y, d.z);
+    }
+  }
+});
+function tryAigramInit() {
+  // Request accelerometer @ 20ms
+  sendAigram({ eventType: 'web_app_start_accelerometer', eventData: { refresh_rate: 20 } });
+}
+
+// --- Telegram.WebApp direct ---
+function tryTelegramWebAppInit() {
+  try {
+    const tg = window.Telegram && window.Telegram.WebApp;
+    if (!tg) return;
+    if (tg.Accelerometer && tg.Accelerometer.start) {
+      tg.Accelerometer.start({ refresh_rate: 20 }, () => {});
+      window.addEventListener('accelerometerChanged', () => {
+        const a = tg.Accelerometer;
+        if (a && typeof a.x === 'number') {
+          sensorActive = true;
+          applyAccel(a.x, a.y, a.z);
+        }
+      });
+    }
+  } catch (e) {}
+}
+
+// --- DOM fallback ---
+let domBound = false;
+function bindDomSensors() {
+  if (domBound) return;
+  domBound = true;
+  window.addEventListener('deviceorientation', (e) => {
+    if (aigramActive) return;
+    sensorActive = true;
+    applyGamma(e.gamma, e.beta);
+  }, { passive: true });
+  window.addEventListener('devicemotion', (e) => {
+    if (aigramActive) return;
+    const ag = e.accelerationIncludingGravity;
+    if (!ag) return;
+    sensorActive = true;
+    applyAccel(ag.x || 0, ag.y || 0, ag.z || 0);
+  }, { passive: true });
+}
+function requestIosPermsIfNeeded() {
+  // On iOS Safari standalone, DeviceMotionEvent.requestPermission must be
+  // called inside a user gesture. We attempt on first pointerdown.
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    return DeviceMotionEvent.requestPermission().then((r) => r === 'granted').catch(() => false);
+  }
+  return Promise.resolve(true);
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function renderFrame(now, dt) {
+  ctx.clearRect(0, 0, W, H);
+
+  const theme = THEMES[currentTheme];
+
+  // Subtle vignette / glow under hourglass for grounding
+  drawBackgroundGlow(theme);
+
+  // Save context, translate to hourglass center
+  ctx.save();
+  ctx.translate(GEO.cx, GEO.cy);
+
+  // Apply flip rotation around X-axis (we use Y as the axis)
+  let flipAng = 0;
+  if (flipState.active) {
+    flipState.t += dt;
+    const u = Math.min(1, flipState.t / FLIP_DURATION_MS);
+    // easeInOutCubic
+    const eased = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+    flipAng = eased * Math.PI;
+    if (u >= 1) { finishFlip(); flipAng = 0; }
+  }
+  if (flipAng !== 0) {
+    // Rotate around screen z by `flipAng` (this gives a 180° spin effect)
+    ctx.rotate(flipAng);
+  }
+
+  // 1) Glass body fill (faint inner tint)
+  drawGlassBody(theme);
+
+  // 2) Settled sand piles
+  drawPile(theme, topSettled);
+  drawPile(theme, bottomSettled);
+
+  // 3) Falling stream
+  drawStream(theme);
+
+  // 4) Glass highlights & rim
+  drawGlassHighlights(theme);
+
+  // 5) Wood caps (top + bottom)
+  drawWoodCap(theme, true);
+  drawWoodCap(theme, false);
+
+  // 6) Sparkles (above everything)
+  drawSparkles(theme);
+
+  ctx.restore();
+}
+
+function drawBackgroundGlow(theme) {
+  // Soft radial wash centered on hourglass
+  const g = ctx.createRadialGradient(GEO.cx, GEO.cy, 0, GEO.cx, GEO.cy, GEO.totalH * 0.6);
+  g.addColorStop(0, theme.grainGlow);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function pathHourglassOutline(inset) {
+  // Outline of glass body (inside the wood caps), with optional inset.
+  // Local coords: y negative = up.
+  const top = GEO.upperChamberTopY - GEO.cy + inset;
+  const bot = GEO.lowerChamberBotY - GEO.cy - inset;
+  const necH = GEO.neckH / 2;
+  const halfCap = GEO.halfWAtCap - inset;
+  const halfNeck = GEO.neckW / 2 + inset * 0.4;
+
+  ctx.beginPath();
+  ctx.moveTo(-halfCap, top);
+  // Right side: cap top → neck right
+  ctx.lineTo(-halfNeck, -necH);
+  ctx.lineTo(-halfNeck, +necH);
+  ctx.lineTo(-halfCap, bot);
+  ctx.lineTo(+halfCap, bot);
+  ctx.lineTo(+halfNeck, +necH);
+  ctx.lineTo(+halfNeck, -necH);
+  ctx.lineTo(+halfCap, top);
+  ctx.closePath();
+}
+
+function drawGlassBody(theme) {
+  // Faint glass interior tint
+  pathHourglassOutline(0);
+  ctx.fillStyle = theme.glassTint;
+  ctx.fill();
+  // Inner subtle gradient (warm wash upper-left, cool shadow lower-right)
+  const g = ctx.createLinearGradient(-GEO.halfWAtCap, -GEO.totalH/2, GEO.halfWAtCap, GEO.totalH/2);
+  g.addColorStop(0, 'rgba(255,255,255,0.025)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0)');
+  g.addColorStop(1, 'rgba(0,0,0,0.10)');
+  pathHourglassOutline(0);
+  ctx.fillStyle = g;
+  ctx.fill();
+}
+
+function drawPile(theme, grains) {
+  if (grains.length === 0) return;
+  if (theme.additive) {
+    ctx.globalCompositeOperation = 'lighter';
+  }
+  // Render grains as small circles with a per-grain shade variation
+  // Pre-compute a couple of colors
+  const colors = [theme.sand, theme.sandLight, theme.sandDark];
+  for (let i = 0; i < grains.length; i++) {
+    const g = grains[i];
+    const c = colors[i % colors.length];
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.arc(g.x, g.y, GRAIN_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Soft glow pass on top
+  if (theme.additive) {
+    ctx.fillStyle = theme.grainGlow;
+    for (let i = 0; i < grains.length; i += 4) {
+      const g = grains[i];
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, GRAIN_RADIUS * 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawStream(theme) {
+  if (inFlight.length === 0) return;
+  if (theme.additive) ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = theme.sandLight;
+  for (let i = 0; i < inFlight.length; i++) {
+    const p = inFlight[i];
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, GRAIN_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (theme.additive) {
+    ctx.fillStyle = theme.grainGlow;
+    for (let i = 0; i < inFlight.length; i++) {
+      const p = inFlight[i];
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, GRAIN_RADIUS * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawGlassHighlights(theme) {
+  // Soft light streak inside each chamber (clipped to hourglass outline).
+  ctx.save();
+  pathHourglassOutline(0);
+  ctx.clip();
+  // Upper streak: thin vertical highlight on the left wall
+  const ucMidY = (GEO.upperChamberTopY + GEO.upperChamberBotY) / 2 - GEO.cy;
+  const lcMidY = (GEO.lowerChamberTopY + GEO.lowerChamberBotY) / 2 - GEO.cy;
+  drawChamberCatch(theme, -GEO.halfWAtCap * 0.32, ucMidY - 8, GEO.chamberH * 0.55, true);
+  drawChamberCatch(theme, -GEO.halfWAtCap * 0.32, lcMidY + 8, GEO.chamberH * 0.55, false);
+  // Tiny back-catch (smaller, right side)
+  drawChamberCatch(theme,  GEO.halfWAtCap * 0.22, ucMidY + 4, GEO.chamberH * 0.30, true);
+  drawChamberCatch(theme,  GEO.halfWAtCap * 0.22, lcMidY - 4, GEO.chamberH * 0.30, false);
+  ctx.restore();
+
+  // Rim halo + tight rim (outside clip)
+  pathHourglassOutline(0);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = theme.glassHi.replace(/[\d.]+\)$/, '0.10)');
+  ctx.stroke();
+  pathHourglassOutline(0);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = theme.glassHi.replace(/[\d.]+\)$/, '0.55)');
+  ctx.stroke();
+}
+
+function drawChamberCatch(theme, cx, cy, height, isUpper) {
+  // A long thin elliptical glow that reads as a glass catch.
+  const rx = 4.5;
+  const ry = height / 2;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(isUpper ? -0.05 : 0.05);
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
+  grad.addColorStop(0,  theme.glassHi);
+  grad.addColorStop(0.4, theme.glassHi.replace(/[\d.]+\)$/, '0.22)'));
+  grad.addColorStop(1,  'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawWoodCap(theme, isTop) {
+  const cy = isTop ? (GEO.topY - GEO.cy + GEO.capH / 2) : (GEO.botY - GEO.cy - GEO.capH / 2);
+  const halfH = GEO.capH / 2;
+  const halfW = GEO.halfWAtCap + 14; // wider than glass for the shoulders
+  // Cap body
+  ctx.save();
+  ctx.translate(0, cy);
+  const grad = ctx.createLinearGradient(0, -halfH, 0, halfH);
+  grad.addColorStop(0, theme.woodLight);
+  grad.addColorStop(0.5, theme.wood);
+  grad.addColorStop(1, theme.woodDark);
+  ctx.fillStyle = grad;
+  // Rounded rect
+  const r = 4;
+  ctx.beginPath();
+  ctx.moveTo(-halfW + r, -halfH);
+  ctx.lineTo(halfW - r, -halfH);
+  ctx.quadraticCurveTo(halfW, -halfH, halfW, -halfH + r);
+  ctx.lineTo(halfW, halfH - r);
+  ctx.quadraticCurveTo(halfW, halfH, halfW - r, halfH);
+  ctx.lineTo(-halfW + r, halfH);
+  ctx.quadraticCurveTo(-halfW, halfH, -halfW, halfH - r);
+  ctx.lineTo(-halfW, -halfH + r);
+  ctx.quadraticCurveTo(-halfW, -halfH, -halfW + r, -halfH);
+  ctx.closePath();
+  ctx.fill();
+  // Top/bottom rim shadow (the side that contacts glass)
+  ctx.strokeStyle = theme.woodDark;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // A subtle horizontal seam
+  ctx.beginPath();
+  ctx.moveTo(-halfW + 6, isTop ? halfH - 1 : -halfH + 1);
+  ctx.lineTo(halfW - 6, isTop ? halfH - 1 : -halfH + 1);
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+  ctx.restore();
+
+  // Two small vertical struts on the sides that "hold" the glass (decorative)
+  ctx.save();
+  ctx.translate(0, cy + (isTop ? halfH + 4 : -halfH - 4));
+  const strutH = 8;
+  for (const sx of [-1, 1]) {
+    ctx.fillStyle = theme.wood;
+    ctx.fillRect(sx * (halfW - 8) - 1.5, isTop ? 0 : -strutH, 3, strutH);
+  }
+  ctx.restore();
+}
+
+function drawSparkles(theme) {
+  if (sparkles.length === 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < sparkles.length; i++) {
+    const s = sparkles[i];
+    const u = s.life / s.max;
+    const a = (1 - u) * 0.7;
+    ctx.fillStyle = theme.sandLight;
+    ctx.globalAlpha = a;
+    const r = GRAIN_RADIUS * (1.2 + u * 1.4);
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// ============================================================
+// INTERACTION
+// ============================================================
+let currentTheme = 'sahara';
+function setTheme(name) {
+  if (!THEMES[name]) return;
+  currentTheme = name;
+  document.body.setAttribute('data-theme', name);
+  // Switcher visual
+  document.querySelectorAll('.switcher-btn').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.theme === name);
+  });
+  // Update info strip pool
+  refreshClimateAndTemp();
+  cycleNextPoem(true);
+}
+
+// Hit-test the wood caps in screen space
+function hitTestCap(sx, sy) {
+  const lx = sx - GEO.cx;
+  const ly = sy - GEO.cy;
+  // Account for flip rotation
+  let lx2 = lx, ly2 = ly;
+  if (flipState.active) {
+    // Doesn't matter; during flip we ignore taps anyway
+  }
+  const inX = Math.abs(lx2) < GEO.halfWAtCap + 16;
+  const topY = GEO.topY - GEO.cy;
+  const botY = GEO.botY - GEO.cy;
+  const onTopCap = ly2 < topY + GEO.capH + 6 && ly2 > topY - 6;
+  const onBotCap = ly2 > botY - GEO.capH - 6 && ly2 < botY + 6;
+  return inX && (onTopCap || onBotCap);
+}
+
+function hitTestGlass(sx, sy) {
+  const lx = sx - GEO.cx;
+  const ly = sy - GEO.cy;
+  if (Math.abs(ly) > GEO.totalH / 2 - GEO.capH) return false;
+  // Inside hourglass V shape — approximate via half-width function
+  const halfW = ly < 0 ? upperWidthAt(ly) : lowerWidthAt(ly);
+  return Math.abs(lx) < halfW;
+}
+
+let hintGone = false;
+function hideHint() {
+  if (hintGone) return;
+  hintGone = true;
+  const h = document.getElementById('hint');
+  h.classList.remove('is-visible');
+  h.classList.add('is-gone');
+}
+function showHint() {
+  if (hintGone) return;
+  document.getElementById('hint').classList.add('is-visible');
+}
+
+function onPointerDown(ev) {
+  ev.preventDefault();
+  const sx = ev.clientX;
+  const sy = ev.clientY;
+
+  // Try iOS perms (no-op if already granted or not iOS)
+  if (!aigramActive && !sensorActive) {
+    requestIosPermsIfNeeded().then((ok) => { if (ok) bindDomSensors(); });
+  }
+
+  if (hitTestCap(sx, sy)) {
+    startFlip();
+    return;
+  }
+  if (hitTestGlass(sx, sy)) {
+    // Spawn sparkle in local coords
+    spawnSparkle(sx - GEO.cx, sy - GEO.cy);
+    hideHint();
+  }
+}
+canvas.addEventListener('pointerdown', onPointerDown);
+window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// Theme switcher
+document.getElementById('switcher').addEventListener('pointerdown', (ev) => {
+  const btn = ev.target.closest('.switcher-btn');
+  if (!btn) return;
+  setTheme(btn.dataset.theme);
+  ev.stopPropagation();
+});
+
+// ============================================================
+// AUTO-FLIP (bounded preload-safe attract)
+// ============================================================
+function tickAutoFlip(dt) {
+  if (flipState.active) return;
+  if (topSettled.length === 0 && inFlight.length === 0) {
+    emptyTimer += dt;
+    if (emptyTimer > POST_EMPTY_PAUSE_MS) {
+      startFlip();
+    }
+  } else {
+    emptyTimer = 0;
+  }
+}
+
+// ============================================================
+// INFO STRIP (time / climate / temperature / poem)
+// ============================================================
+const elStatusTime = document.getElementById('status-time');
+const elStatusClim = document.getElementById('status-clim');
+const elStatusTemp = document.getElementById('status-temp');
+const elPoem = document.getElementById('poem');
+
+function fmtTime() {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return hh + ':' + mm;
+}
+let climateLocked = '';
+let tempLocked = '';
+function refreshClimateAndTemp() {
+  const t = THEMES[currentTheme];
+  climateLocked = t.climate[Math.floor(Math.random() * t.climate.length)];
+  tempLocked = t.temps[Math.floor(Math.random() * t.temps.length)];
+  elStatusClim.textContent = climateLocked;
+  elStatusTemp.textContent = tempLocked;
+}
+function tickStatus() {
+  elStatusTime.textContent = fmtTime();
+}
+
+let poemIndex = 0;
+let poemFadeUntil = 0;
+function cycleNextPoem(forceImmediate) {
+  const t = THEMES[currentTheme];
+  poemIndex = (poemIndex + 1) % t.poems.length;
+  if (forceImmediate) {
+    elPoem.classList.remove('is-visible');
+    setTimeout(() => {
+      elPoem.textContent = t.poems[poemIndex];
+      elPoem.classList.add('is-visible');
+    }, 200);
+  } else {
+    elPoem.classList.remove('is-visible');
+    setTimeout(() => {
+      elPoem.textContent = t.poems[poemIndex];
+      elPoem.classList.add('is-visible');
+    }, 1500);
+  }
+}
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+let lastFrameTime = 0;
+const FRAME_MS = 1000 / 60;
+
+function frame(now) {
+  if (!lastFrameTime) lastFrameTime = now;
+  const dt = Math.min(40, now - lastFrameTime); // clamp dt for tab switch
+  lastFrameTime = now;
+
+  // Smooth gravity
+  gravityRef.x += (gravityRaw.x - gravityRef.x) * 0.18;
+  gravityRef.y += (gravityRaw.y - gravityRef.y) * 0.18;
+
+  startDrain(dt);
+  stepInFlight(dt);
+  stepSparkles(dt);
+  tickAutoFlip(dt);
+
+  renderFrame(now, dt);
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function isPosterMode() {
+  return new URLSearchParams(location.search).get('poster') === '1';
+}
+
+function init() {
+  if (isPosterMode()) {
+    document.body.classList.add('is-poster');
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  setTheme('sahara');
+
+  // Status loop
+  tickStatus();
+  setInterval(tickStatus, 30000);
+  // Poem cycle
+  setTimeout(() => cycleNextPoem(true), 1200);
+  setInterval(() => cycleNextPoem(false), 22000);
+  // Hint
+  setTimeout(() => showHint(), 1800);
+  setTimeout(() => hideHint(), 16000);
+
+  // Sensor init
+  tryAigramInit();
+  tryTelegramWebAppInit();
+  // Bind DOM motion lazily on first gesture for iOS, but also
+  // bind unconditionally on non-iOS so non-iOS gets immediate values.
+  if (typeof DeviceMotionEvent === 'undefined' || typeof DeviceMotionEvent.requestPermission !== 'function') {
+    bindDomSensors();
+  }
+
+  requestAnimationFrame(frame);
+}
+
+init();
+</script>
+</body>
+</html>
