@@ -160,12 +160,12 @@
   .hint.is-gone { opacity: 0; animation: none; }
   @keyframes hintBreathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
-  /* Fact card — persistent caption at bottom; updated on each flip */
+  /* Fact card — persistent block above status; updated on each flip */
   .fact-card {
     position: absolute;
-    bottom: calc(max(20px, env(safe-area-inset-bottom)) + 38px);
-    left: 8%;
-    right: 8%;
+    bottom: calc(max(20px, env(safe-area-inset-bottom)) + 78px);
+    left: 6%;
+    right: 6%;
     text-align: center;
     pointer-events: none;
     z-index: 6;
@@ -174,21 +174,27 @@
   }
   .fact-card.is-visible { opacity: 1; }
   .fact-card .fc-duration {
-    font-family: ui-monospace, "JetBrains Mono", monospace;
-    font-size: 10px;
-    letter-spacing: 0.38em;
-    text-transform: uppercase;
-    color: rgba(232, 220, 188, 0.45);
-    margin-bottom: 8px;
+    font-family: "Cormorant Garamond", "Times New Roman", serif;
+    font-weight: 400;
+    font-size: 46px;
+    letter-spacing: 0.04em;
+    color: rgba(255, 234, 196, 0.97);
+    text-shadow: 0 3px 22px rgba(0,0,0,0.55);
+    line-height: 1.0;
+    margin-bottom: 14px;
   }
+  /* Theme-colored duration text */
+  body[data-theme="geode"]    .fact-card .fc-duration { color: rgba(232, 210, 255, 0.97); text-shadow: 0 2px 18px rgba(40,10,80,0.55); }
+  body[data-theme="glowsand"] .fact-card .fc-duration { color: rgba(200, 248, 250, 0.97); text-shadow: 0 2px 18px rgba(0,30,40,0.55); }
+
   .fact-card .fc-body {
     font-family: "Cormorant Garamond", "Times New Roman", serif;
     font-style: italic;
-    font-size: 16px;
-    line-height: 1.36;
+    font-size: 17px;
+    line-height: 1.42;
     letter-spacing: 0.01em;
-    color: rgba(248, 232, 200, 0.86);
-    max-width: 540px;
+    color: rgba(232, 218, 188, 0.78);
+    max-width: 560px;
     margin: 0 auto;
   }
   /* Sub-line hidden in the new sticky layout */
@@ -223,15 +229,6 @@
     line-height: 1;
     text-transform: uppercase;
   }
-  .poster-title .pt-sub {
-    margin-top: 14px;
-    font-family: "Cormorant Garamond", "Times New Roman", serif;
-    font-style: italic;
-    font-size: 26px;
-    letter-spacing: 0.04em;
-    color: rgba(232, 212, 178, 0.66);
-    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
-  }
 </style>
 </head>
 <body data-theme="sahara">
@@ -254,7 +251,6 @@
 
   <div class="poster-title">
     <div class="pt-name">Hourglass</div>
-    <div class="pt-sub">slow, by the grain</div>
   </div>
 
   <div class="poem" id="poem"></div>
@@ -505,18 +501,14 @@ function pickFact(elapsedSec) {
   const fact = arr[Math.floor(Math.random() * arr.length)] || { en: '—', zh: '—' };
   return { bucket, fact };
 }
+// Duration label is always English regardless of UI locale — the timestamp is
+// part of the visual identity ("20 SECONDS", "3 minutes", etc.).
 function formatDurationLabel(sec) {
-  if (LOCALE === 'zh') {
-    if (sec < 60)   return sec + ' 秒';
-    if (sec < 3600) return Math.round(sec / 60) + ' 分钟';
-    return (sec / 3600).toFixed(1) + ' 小时';
-  } else {
-    if (sec === 1)  return '1 second';
-    if (sec < 60)   return sec + ' seconds';
-    if (sec < 120)  return '1 minute';
-    if (sec < 3600) return Math.round(sec / 60) + ' minutes';
-    return (sec / 3600).toFixed(1) + ' hours';
-  }
+  if (sec === 1)  return '1 second';
+  if (sec < 60)   return sec + ' seconds';
+  if (sec < 120)  return '1 minute';
+  if (sec < 3600) return Math.round(sec / 60) + ' minutes';
+  return (sec / 3600).toFixed(1) + ' hours';
 }
 const FACT_INTRO = {
   en: 'In this span, the world quietly did this.',
@@ -894,6 +886,7 @@ function stepInFlight(dt, theme) {
         }
         if (placedCol >= 0) {
           spawnDust(p.x, stackTopY, theme);
+          playImpactPing();
         }
         inFlight.splice(i, 1);
         continue;
@@ -971,6 +964,7 @@ function triggerFlip() {
   updateFactCard(elapsedSec);
   hideHint();
   spawnFlipBurst();
+  playFlipSound();
   stageFlipped = !stageFlipped;
   stage.classList.toggle('is-flipped', stageFlipped);
   cyclePhase = 'flipping';
@@ -989,23 +983,29 @@ function startFlip() {
   triggerFlip();
 }
 function finishFlip() {
-  // After visual rotation, what was bottom becomes top. Swap state arrays so
-  // sim coords realign, then reset for the next cycle.
+  // Swap chamber state — what was the bottom is now the top.
   const t = topCols, tm = topMax;
   topCols = botCols; topMax = botMax;
   botCols = t;       botMax = tm;
-  let carry = 0;
-  for (let i = 0; i < NUM_COLS; i++) carry += topCols[i];
+  // CONSERVE total sand: re-settle BOTH chambers into clean piles of their
+  // existing grain counts. (Earlier bug: only re-settled the top and cleared
+  // the bottom, which lost grains on every manual flip → cycles got shorter
+  // and shorter, always returning the same elapsed-second bucket.)
+  let topCarry = 0, botCarry = 0;
+  for (let i = 0; i < NUM_COLS; i++) topCarry += topCols[i];
+  for (let i = 0; i < NUM_COLS; i++) botCarry += botCols[i];
   for (let i = 0; i < NUM_COLS; i++) { topCols[i] = 0; botCols[i] = 0; }
-  refillFromCenter(topCols, topMax, carry);
+  refillFromCenter(topCols, topMax, topCarry);
+  refillFromCenter(botCols, botMax, botCarry);
+
   inFlight.length = 0;
   drainAccum = 0;
   emptyTimer = 0;
   phaseTimer = 0;
   flipState = { active: false, t: 0 };
-  // Begin a fresh cycle with a new random target duration
+  // Fresh random target duration for the upcoming drain
   pickCycleDuration();
-  DRAIN_INTERVAL_MS = Math.max(20, (cycleTargetSec * 1000) / Math.max(1, carry || totalGrains));
+  DRAIN_INTERVAL_MS = Math.max(20, (cycleTargetSec * 1000) / Math.max(1, topCarry || totalGrains));
   drainStartTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
   cyclePhase = 'draining';
 }
@@ -1057,6 +1057,7 @@ function frame(now) {
   stepMotes(dt);
   tickCycle(dt);
   tickAutoFlip(dt);
+  tickAudio();
 
   render(theme);
   requestAnimationFrame(frame);
@@ -1155,11 +1156,12 @@ function pathHourglassOutline() {
 }
 
 function drawChamberTint(theme) {
-  // Soft inner haze inside the chamber outline — gives the glass body color.
+  // Soft inner haze + curved light catches, all clipped inside the chamber.
   pathHourglassOutline();
   ctx.save();
   ctx.clip();
-  // Radial glow centered on chamber middle
+
+  // 1) Radial glow centered on chamber middle (the base tint)
   const midY = stageSize * 0.5;
   const g = ctx.createRadialGradient(cxPx, midY, 0, cxPx, midY, stageSize * 0.45);
   g.addColorStop(0, theme.vesselTint);
@@ -1167,7 +1169,57 @@ function drawChamberTint(theme) {
   g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, stageSize, stageSize);
+
+  // 2) Soft curved highlights — two per chamber. They sit just inside the
+  // wall, follow the curve, and use a radial gradient with low alpha so the
+  // edges feather out (no hard specular). 'lighter' blending lets them
+  // brighten without dirtying the underlying tint.
+  ctx.globalCompositeOperation = 'lighter';
+  const upperMid = ((FRAC.upperTop + FRAC.upperBot) / 2) * stageSize;
+  const lowerMid = ((FRAC.lowerTop + FRAC.lowerBot) / 2) * stageSize;
+
+  drawGlassCatch(theme, cxPx - 0.052 * stageSize, upperMid - 0.005 * stageSize, 0.018 * stageSize, 0.122 * stageSize,  0.05, 0.62);
+  drawGlassCatch(theme, cxPx + 0.046 * stageSize, upperMid + 0.020 * stageSize, 0.011 * stageSize, 0.068 * stageSize, -0.04, 0.38);
+  drawGlassCatch(theme, cxPx - 0.052 * stageSize, lowerMid + 0.005 * stageSize, 0.018 * stageSize, 0.122 * stageSize, -0.05, 0.62);
+  drawGlassCatch(theme, cxPx + 0.046 * stageSize, lowerMid - 0.020 * stageSize, 0.011 * stageSize, 0.068 * stageSize,  0.04, 0.38);
+
+  // 3) A subtle horizontal "shoulder" highlight at the chamber's widest point,
+  // suggesting the curve catching ambient light.
+  const peakUpperY = (FRAC.upperTop + (FRAC.upperBot - FRAC.upperTop) * 0.42) * stageSize;
+  const peakLowerY = (FRAC.lowerTop + (FRAC.lowerBot - FRAC.lowerTop) * 0.58) * stageSize;
+  drawShoulderGlow(theme, peakUpperY, 0.22);
+  drawShoulderGlow(theme, peakLowerY, 0.22);
+
   ctx.restore();
+}
+
+function drawGlassCatch(theme, cx, cy, rx, ry, rot, peakAlpha) {
+  // Elongated soft highlight using a radial gradient.
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, ry);
+  grad.addColorStop(0,    theme.capAccent.replace(/[\d.]+\)$/, peakAlpha.toFixed(2) + ')'));
+  grad.addColorStop(0.45, theme.capAccent.replace(/[\d.]+\)$/, (peakAlpha * 0.42).toFixed(3) + ')'));
+  grad.addColorStop(0.78, theme.capAccent.replace(/[\d.]+\)$/, (peakAlpha * 0.12).toFixed(3) + ')'));
+  grad.addColorStop(1,    'rgba(255,255,255,0)');
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawShoulderGlow(theme, y, peakAlpha) {
+  // Wide flat shimmer across the chamber widest point.
+  const grad = ctx.createRadialGradient(cxPx, y, 0, cxPx, y, stageSize * 0.20);
+  grad.addColorStop(0,    theme.capAccent.replace(/[\d.]+\)$/, peakAlpha.toFixed(2) + ')'));
+  grad.addColorStop(0.55, theme.capAccent.replace(/[\d.]+\)$/, (peakAlpha * 0.18).toFixed(3) + ')'));
+  grad.addColorStop(1,    'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(cxPx, y, stageSize * 0.085, stageSize * 0.014, 0, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawVesselOutline(theme) {
@@ -1404,6 +1456,135 @@ function drawGrain(theme, x, y, size, hueIdx) {
 }
 
 // ============================================================
+// AUDIO (subtle, gated on first user gesture; iOS-safe)
+//   - sand rustle: continuous filtered pink-noise loop, gain follows drain
+//   - impact tick: tiny filtered-noise pop when a grain lands (throttled)
+//   - flip chime + whoosh: short envelope on flip trigger
+// Per project audio rules: all buffers pre-allocated; AudioContext.resume()
+// called ONCE; nothing complex until 500ms after first gesture.
+// ============================================================
+let audioCtx = null;
+let masterGain = null;
+let noiseBuffer = null;
+let rustleSource = null;
+let rustleFilter = null;
+let rustleGain = null;
+let audioInited = false;
+let audioStartedAt = 0;
+let lastImpactAudioTime = 0;
+
+function audioResumeOnce() {
+  if (audioInited) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) { audioInited = true; return; }
+  audioCtx = new Ctx();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.85;
+  masterGain.connect(audioCtx.destination);
+
+  // Pre-allocate a 2-second pink-noise buffer
+  const len = audioCtx.sampleRate * 2;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+  for (let i = 0; i < len; i++) {
+    const w = Math.random() * 2 - 1;
+    b0 = 0.99886 * b0 + w * 0.0555179;
+    b1 = 0.99332 * b1 + w * 0.0750759;
+    b2 = 0.96900 * b2 + w * 0.1538520;
+    b3 = 0.86650 * b3 + w * 0.3104856;
+    b4 = 0.55000 * b4 + w * 0.5329522;
+    b5 = -0.7616 * b5 - w * 0.0168980;
+    data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+    b6 = w * 0.115926;
+  }
+  noiseBuffer = buf;
+
+  // Start the rustle voice with gain 0 — gain ramps in/out with drain activity
+  rustleSource = audioCtx.createBufferSource();
+  rustleSource.buffer = buf;
+  rustleSource.loop = true;
+  rustleFilter = audioCtx.createBiquadFilter();
+  rustleFilter.type = 'lowpass';
+  rustleFilter.frequency.value = 900;
+  rustleFilter.Q.value = 0.4;
+  rustleGain = audioCtx.createGain();
+  rustleGain.gain.value = 0;
+  rustleSource.connect(rustleFilter);
+  rustleFilter.connect(rustleGain);
+  rustleGain.connect(masterGain);
+  // Delay 80ms — iOS occasionally hiccups if started in the same tick as user gesture
+  rustleSource.start(audioCtx.currentTime + 0.08);
+
+  audioCtx.resume().catch(() => {});
+  audioStartedAt = audioCtx.currentTime;
+  audioInited = true;
+}
+
+function tickAudio() {
+  if (!audioInited || !audioCtx || audioCtx.state !== 'running') return;
+  // Rustle volume tracks active grain count, smoothed by the audio param
+  const targetGain = Math.min(0.045, inFlight.length * 0.0035);
+  if (rustleGain) rustleGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.35);
+}
+
+function playImpactPing() {
+  if (!audioInited || !audioCtx || audioCtx.state !== 'running') return;
+  if (audioCtx.currentTime - audioStartedAt < 0.2) return; // give iOS context room
+  const now = audioCtx.currentTime;
+  if (now - lastImpactAudioTime < 0.07) return; // throttle: max ~14/s
+  lastImpactAudioTime = now;
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuffer;
+  src.playbackRate.value = 0.45 + Math.random() * 0.4;
+  const fil = audioCtx.createBiquadFilter();
+  fil.type = 'highpass';
+  fil.frequency.value = 1100;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(0.012, now + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
+  src.connect(fil); fil.connect(g); g.connect(masterGain);
+  src.start(now);
+  src.stop(now + 0.09);
+}
+
+function playFlipSound() {
+  if (!audioInited || !audioCtx || audioCtx.state !== 'running') return;
+  if (audioCtx.currentTime - audioStartedAt < 0.5) return; // iOS: avoid same-gesture complexity
+  const now = audioCtx.currentTime;
+  // Soft chime: sine glissando with smooth envelope
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(196, now);
+  osc.frequency.exponentialRampToValueAtTime(392, now + 0.16);
+  osc.frequency.exponentialRampToValueAtTime(294, now + 0.62);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(0.07, now + 0.07);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(now);
+  osc.stop(now + 0.9);
+
+  // Soft whoosh: pink-noise burst with descending lowpass
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuffer;
+  const fil = audioCtx.createBiquadFilter();
+  fil.type = 'lowpass';
+  fil.frequency.setValueAtTime(1400, now);
+  fil.frequency.exponentialRampToValueAtTime(280, now + 0.45);
+  const wg = audioCtx.createGain();
+  wg.gain.setValueAtTime(0, now);
+  wg.gain.linearRampToValueAtTime(0.05, now + 0.10);
+  wg.gain.linearRampToValueAtTime(0, now + 0.55);
+  src.connect(fil); fil.connect(wg); wg.connect(masterGain);
+  src.start(now);
+  src.stop(now + 0.6);
+}
+
+// ============================================================
 // SENSOR BRIDGE
 // ============================================================
 const gravityRef = { x: 0, y: 1 };
@@ -1545,6 +1726,7 @@ function showHint() {
 // During flip: ignored.
 function onAnyPointerDown(ev) {
   ev.preventDefault();
+  audioResumeOnce();
   const sx = ev.clientX;
   const sy = ev.clientY;
   if (!aigramActive && !sensorActive) {
