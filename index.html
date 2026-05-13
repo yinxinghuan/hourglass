@@ -1468,9 +1468,32 @@ function render(theme) {
     ctx.scale(-1, -1);
   }
 
+  // Burst shockwave distortion — while the flip-burst ring is expanding, every
+  // particle whose distance-from-center is within BURST_BAND of the current
+  // ring radius gets pushed radially outward by a bell-shaped amount. Visual
+  // only (not applied to physics); particles snap back to their natural
+  // trajectory as the wave passes them by.
+  const burstActive = flipBurstT > 0;
+  const burstT = burstActive ? 1 - flipBurstT / FLIP_BURST_MS : 0;
+  const burstRingR = burstActive ? stageSize * 0.55 * (1 - Math.pow(1 - burstT, 2.5)) : -1;
+  const BURST_BAND = GRAIN_R * 6;
+  const BURST_PUSH = GRAIN_R * 4.2;
+  const stageMid = stageSize / 2;
+  function burstPushXY(x, y) {
+    if (!burstActive) return [x, y];
+    const ox = x - cxPx, oy = y - stageMid;
+    const d = Math.hypot(ox, oy);
+    if (d < 0.001) return [x, y];
+    const delta = d - burstRingR;
+    if (Math.abs(delta) > BURST_BAND) return [x, y];
+    const u = 1 - Math.abs(delta) / BURST_BAND; // 0..1 bell peaking at the ring
+    const f = (u * BURST_PUSH) / d;
+    return [x + ox * f, y + oy * f];
+  }
+
   // Order matters: atmosphere behind everything, then vessel chamber tint,
   // then sand piles, then stream/dust, then glass outline glow on top.
-  drawAtmosphere(theme);
+  drawAtmosphere(theme, burstPushXY);
   drawChamberTint(theme);
 
   if (theme.additive) ctx.globalCompositeOperation = 'lighter';
@@ -1482,7 +1505,8 @@ function render(theme) {
   // In-flight stream
   for (let i = 0; i < inFlight.length; i++) {
     const p = inFlight[i];
-    drawGrain(theme, p.x, p.y, p.size, p.hueIdx);
+    const [px, py] = burstPushXY(p.x, p.y);
+    drawGrain(theme, px, py, p.size, p.hueIdx);
   }
 
   // Dust
@@ -1490,10 +1514,11 @@ function render(theme) {
     const d = dust[i];
     const u = d.life / d.max;
     const a = (1 - u) * 0.55;
+    const [dx, dy] = burstPushXY(d.x, d.y);
     ctx.fillStyle = theme.impactDust;
     ctx.globalAlpha = a;
     ctx.beginPath();
-    ctx.arc(d.x, d.y, GRAIN_R * (0.6 + u * 0.4), 0, Math.PI * 2);
+    ctx.arc(dx, dy, GRAIN_R * (0.6 + u * 0.4), 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -1508,14 +1533,16 @@ function render(theme) {
     const r = GRAIN_R * (1.05 + u * 1.2);
     ctx.fillStyle = theme.sandPalette[3];
     if (s.px !== undefined) {
+      const [tx, ty] = burstPushXY(s.px, s.py);
       ctx.globalAlpha = a * 0.35;
       ctx.beginPath();
-      ctx.arc(s.px, s.py, r * 0.85, 0, Math.PI * 2);
+      ctx.arc(tx, ty, r * 0.85, 0, Math.PI * 2);
       ctx.fill();
     }
+    const [hx, hy] = burstPushXY(s.x, s.y);
     ctx.globalAlpha = a;
     ctx.beginPath();
-    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+    ctx.arc(hx, hy, r, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -1736,19 +1763,22 @@ function stepMotes(dt) {
   }
 }
 
-function drawAtmosphere(theme) {
+function drawAtmosphere(theme, pushXY) {
   if (motes.length === 0) initMotes();
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (const m of motes) {
     const a = 0.4 + 0.4 * Math.sin(m.phase);
+    // Background motes are pushed radially by the burst shockwave too — adds
+    // a "dust kicked up" feel as the ring sweeps past them.
+    const [mx, my] = pushXY ? pushXY(m.x, m.y) : [m.x, m.y];
     ctx.fillStyle = theme.motes.replace(/[\d.]+\)$/, (a * 0.6).toFixed(3) + ')');
     ctx.beginPath();
-    ctx.arc(m.x, m.y, m.r * 1.6, 0, Math.PI * 2);
+    ctx.arc(mx, my, m.r * 1.6, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = theme.motes;
     ctx.beginPath();
-    ctx.arc(m.x, m.y, m.r * 0.4, 0, Math.PI * 2);
+    ctx.arc(mx, my, m.r * 0.4, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
