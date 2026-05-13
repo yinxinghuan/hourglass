@@ -401,14 +401,89 @@ const THEMES = {
 // When the hourglass flips (auto or by tap), we pick the bucket
 // closest to the elapsed drain time and show one random fact.
 // ============================================================
-const FACT_BUCKETS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600, 1800];
+const FACT_BUCKETS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 17, 20, 25, 30, 40, 50, 60, 75, 90, 120, 150, 180, 240, 300, 450, 600, 900, 1800];
 
 const FACTS = {
+  1: [
+    { en: 'Light traveled ~300,000 km — 7× around Earth.',            zh: '光跨过约 30 万公里——绕地球 7 圈半。' },
+    { en: 'A hummingbird flapped its wings ~70 times.',               zh: '蜂鸟扇翅约 70 次。' },
+    { en: 'Lightning struck Earth ~44 times.',                        zh: '地球落雷约 44 道。' },
+    { en: 'Your screen refreshed ~60 times.',                         zh: '你的屏幕刷新了约 60 次。' },
+    { en: 'Sound traveled ~340 m — about one city block.',            zh: '声音传过 340 米——约一个街区长。' },
+    { en: 'Your eyes processed roughly 10 frames.',                   zh: '你的眼睛过了约 10 帧画面。' },
+    { en: 'Earth moved ~30 km along its orbit.',                      zh: '地球沿轨道前进了 30 公里。' },
+  ],
+  2: [
+    { en: 'Sound covered ~680 m.',                                    zh: '声音传过了 680 米。' },
+    { en: 'Your heart beat 2–3 times.',                               zh: '你的心脏跳了 2 到 3 下。' },
+    { en: 'The ISS flew ~16 km along its orbit.',                     zh: '国际空间站沿轨道飞过 16 公里。' },
+    { en: 'The Sun fused ~1.3 billion kg of hydrogen.',               zh: '太阳把约 13 亿千克的氢融合为氦。' },
+    { en: 'A peregrine falcon dove ~200 m.',                          zh: '一只游隼俯冲了 200 米。' },
+    { en: 'A jaguar finished a 50 m chase.',                          zh: '一头美洲豹完成了 50 米追击。' },
+    { en: 'About 8 babies were born somewhere in the world.',         zh: '世界上约有 8 个婴儿出生。' },
+  ],
+  3: [
+    { en: 'You blinked about once.',                                  zh: '你大约眨了一次眼。' },
+    { en: 'Lightning struck Earth ~130 times.',                       zh: '地球落雷约 130 道。' },
+    { en: 'A peregrine falcon dove ~300 m.',                          zh: '游隼俯冲了约 300 米。' },
+    { en: 'Earth moved ~90 km along its orbit.',                      zh: '地球沿轨道前进了约 90 公里。' },
+    { en: 'A cricket chirped 3 or 4 times.',                          zh: '一只蟋蟀叫了 3 到 4 声。' },
+    { en: 'A great white shark swam ~30 m.',                          zh: '一头大白鲨游过了 30 米。' },
+    { en: 'Your skin produced ~120,000 new cells.',                   zh: '你的皮肤造出了约 12 万个新细胞。' },
+  ],
+  4: [
+    { en: 'An average person took 1 full breath.',                    zh: '普通人完成了 1 次完整呼吸。' },
+    { en: 'A high-speed train covered ~400 m.',                       zh: '一列高铁开过了 400 米。' },
+    { en: 'Your bone marrow made ~10 million red blood cells.',       zh: '你的骨髓造出了约 1000 万颗红细胞。' },
+    { en: 'A garden snail crawled ~4 cm.',                            zh: '一只蜗牛爬过了 4 厘米。' },
+    { en: 'A jumbo jet covered ~1 km at cruise.',                     zh: '一架巨型客机巡航飞过了 1 公里。' },
+    { en: 'The Sun lost ~16 million tons of mass to fusion.',         zh: '太阳因聚变损失了约 1600 万吨质量。' },
+    { en: 'Niagara Falls dumped ~11 million litres.',                 zh: '尼亚加拉大瀑布倾泻了约 1100 万升水。' },
+  ],
   5: [
     { en: 'Lightning struck Earth ~220 times.',                       zh: '地球被闪电击中了约 220 次。' },
     { en: 'You took roughly one full breath.',                        zh: '你大约完成了一次完整呼吸。' },
     { en: 'The Sun radiated as much energy as a small country uses in a year.', zh: '太阳辐射出的能量，约等于一个小国一年的耗能。' },
     { en: 'Earth moved ~150 km along its orbit around the Sun.',      zh: '地球沿绕日轨道前进了约 150 公里。' },
+    { en: 'Your heart beat about 6 times.',                           zh: '你的心脏跳了约 6 次。' },
+    { en: 'Sound traveled ~1.7 km — across a small lake.',            zh: '声音传过 1.7 公里——能穿过一个小湖。' },
+    { en: 'A house cat covered ~50 m at full pelt.',                  zh: '一只奔跑中的家猫跑过了 50 米。' },
+  ],
+  6: [
+    { en: 'A peregrine falcon dove ~600 m at top speed.',             zh: '游隼以最高速度俯冲了约 600 米。' },
+    { en: 'Your eyes blinked roughly 2 times.',                       zh: '你大约眨了 2 次眼。' },
+    { en: 'Niagara Falls dumped ~17 million litres.',                 zh: '尼亚加拉大瀑布倾泻了约 1700 万升水。' },
+    { en: 'A jaguar covered ~150 m in a sprint.',                     zh: '一头美洲豹冲过了 150 米。' },
+    { en: 'Earth received ~600 lightning strikes.',                   zh: '地球收到约 600 道闪电。' },
+    { en: 'The ISS traveled ~47 km across the sky.',                  zh: '国际空间站在天空中飞过了 47 公里。' },
+    { en: 'About 25 babies were born somewhere in the world.',        zh: '世界上约有 25 个婴儿出生。' },
+  ],
+  7: [
+    { en: 'A high-speed train covered ~700 m.',                       zh: '一列高铁开过了 700 米。' },
+    { en: 'Sound traveled ~2.4 km — across a small town.',            zh: '声音传过 2.4 公里——能穿过一座小镇。' },
+    { en: 'About 35 babies were born around the world.',              zh: '全世界约有 35 个婴儿出生。' },
+    { en: 'Your body produced ~17 million red blood cells.',          zh: '你的身体造出了约 1700 万颗红细胞。' },
+    { en: 'A cheetah covered ~210 m at full speed.',                  zh: '一头猎豹全速跑过了 210 米。' },
+    { en: 'The Sun lost ~28 million tons of mass to fusion.',         zh: '太阳因聚变损失了约 2800 万吨质量。' },
+    { en: 'The Moon moved ~7 km across the sky.',                     zh: '月亮在天空中移动了约 7 公里。' },
+  ],
+  8: [
+    { en: 'Usain Bolt nearly hit the 100 m line.',                    zh: '博尔特已经快冲过 100 米终点。' },
+    { en: 'The Sun lost ~32 million tons of mass.',                   zh: '太阳损失了约 3200 万吨质量。' },
+    { en: 'A cheetah covered ~250 m at full speed.',                  zh: '一头猎豹全速跑过了 250 米。' },
+    { en: 'Bamboo grew ~0.4 mm in season.',                           zh: '旺季的竹子长了约 0.4 毫米。' },
+    { en: 'A hummingbird flapped its wings ~550 times.',              zh: '蜂鸟扇翅约 550 次。' },
+    { en: 'Niagara Falls dumped ~22 million litres.',                 zh: '尼亚加拉大瀑布倾泻了约 2200 万升水。' },
+    { en: 'Earth moved ~240 km along its orbit.',                     zh: '地球沿轨道前进了 240 公里。' },
+  ],
+  9: [
+    { en: 'The ISS moved ~70 km across the sky.',                     zh: '国际空间站在天空中飞过 70 公里。' },
+    { en: 'About 36 babies were born; ~16 people passed.',            zh: '约 36 个婴儿出生；约 16 人离世。' },
+    { en: 'Lightning struck Earth ~400 times.',                       zh: '地球落雷约 400 道。' },
+    { en: 'Your eyes blinked roughly 3 times.',                       zh: '你大约眨了 3 次眼。' },
+    { en: 'A blue whale’s heart beat 1 or 2 times.',                  zh: '一头蓝鲸的心脏跳了 1 到 2 下。' },
+    { en: 'A 10 m dive lasts ~1.4 s — you could fit 6.',              zh: '10 米跳水约 1.4 秒——能塞下 6 次。' },
+    { en: 'Sound traveled ~3 km — across a fjord.',                   zh: '声音传过约 3 公里——能穿过一道峡湾。' },
   ],
   10: [
     { en: 'Your heart beat about 12 times.',                          zh: '你的心跳约 12 次。' },
@@ -416,11 +491,22 @@ const FACTS = {
     { en: 'A sprinter just covered ~100 metres.',                     zh: '一名短跑运动员跑完了 100 米。' },
     { en: 'The ISS traveled ~78 km across the sky.',                  zh: '国际空间站在天空中划过了 78 公里。' },
     { en: 'About 40 babies were born somewhere in the world.',        zh: '世界上约有 40 个婴儿出生。' },
+    { en: 'A peregrine falcon completed a full kill dive.',           zh: '一只游隼完成了一次完整的俯冲猎杀。' },
+    { en: 'Sound covered ~3.4 km — across a strait.',                 zh: '声音传过 3.4 公里——能穿过一道海峡。' },
   ],
-  15: [
+  13: [
+    { en: 'Sound covered ~4.4 km — across a small bay.',              zh: '声音传过 4.4 公里——能穿过一个小海湾。' },
+    { en: 'A hummingbird flapped ~850 times.',                        zh: '蜂鸟扇翅约 850 次。' },
+    { en: 'Earth rotated ~5 km along its equator.',                   zh: '地球赤道转过了约 5 公里。' },
+    { en: 'Niagara Falls dumped ~36 million litres.',                 zh: '尼亚加拉大瀑布倾泻了约 3600 万升水。' },
+    { en: 'About 55 babies were born around the world.',              zh: '全球约 55 个婴儿出生。' },
+  ],
+  17: [
     { en: 'A blue whale’s heart beat about 3 times.',                 zh: '一头蓝鲸的心脏跳了约 3 下。' },
-    { en: 'Sound traveled ~5.1 km — across a small valley.',          zh: '声音传播了 5.1 公里——能穿过一座小山谷。' },
-    { en: 'Niagara Falls dumped ~42 million litres of water.',        zh: '尼亚加拉大瀑布倾泻了约 4200 万升水。' },
+    { en: 'The Moon moved ~17 km across the night sky.',              zh: '月亮在夜空中划过了 17 公里。' },
+    { en: 'An elite distance runner clocked the 100 m.',              zh: '一名顶级长跑选手跑完了 100 米。' },
+    { en: 'About 70 babies were born; ~30 people passed.',            zh: '约 70 个婴儿出生；约 30 人离世。' },
+    { en: 'Light bounced between Earth and Moon ~6 times.',           zh: '光在地月之间往返了约 6 次。' },
   ],
   20: [
     { en: 'A hummingbird flapped its wings ~1,300 times.',            zh: '蜂鸟扇动了约 1,300 次翅膀。' },
@@ -429,6 +515,13 @@ const FACTS = {
     { en: 'You took about 5 breaths and your eyes blinked ~6 times.', zh: '你呼吸了约 5 次，眨眼约 6 次。' },
     { en: 'Mount Everest rose ~0.000003 mm — geology is patient.',    zh: '珠穆朗玛峰升高了约 0.000003 毫米——地质有耐心。' },
   ],
+  25: [
+    { en: 'A bee may have visited ~20 flowers.',                      zh: '一只蜜蜂可能拜访了约 20 朵花。' },
+    { en: 'Sound covered ~8.5 km — across a fjord.',                  zh: '声音传过 8.5 公里——能穿过一道峡湾。' },
+    { en: 'You took about 6 breaths.',                                zh: '你呼吸了约 6 次。' },
+    { en: 'A garden snail crawled ~25 cm.',                           zh: '一只蜗牛爬过了 25 厘米。' },
+    { en: 'The Sun shed ~530 million tons of mass.',                  zh: '太阳损失了约 5.3 亿吨质量。' },
+  ],
   30: [
     { en: 'A bee may have visited ~25 flowers.',                      zh: '一只蜜蜂可能拜访了约 25 朵花。' },
     { en: 'Niagara Falls dumped ~84 million litres of water.',        zh: '尼亚加拉大瀑布倾泻了约 8400 万升水。' },
@@ -436,11 +529,17 @@ const FACTS = {
     { en: 'Earth turned ~12.5 km along its equator.',                 zh: '地球赤道转过了约 12.5 公里。' },
     { en: 'A garden snail crawled ~30 cm.',                           zh: '一只蜗牛爬过了约 30 厘米。' },
   ],
-  45: [
-    { en: 'An Olympic swimmer covered ~75 m of butterfly.',           zh: '一名奥运选手游了约 75 米蝶泳。' },
-    { en: 'A jumbo jet flew ~12 km at cruising altitude.',            zh: '一架巨型客机在巡航高度飞行了 12 公里。' },
-    { en: 'You shed about 1.3 million skin cells.',                   zh: '你脱落了约 130 万颗皮肤细胞。' },
-    { en: 'Lightning struck ~2,000 times around the world.',          zh: '全球落雷约 2,000 次。' },
+  40: [
+    { en: 'A jumbo jet flew ~11 km at cruising altitude.',            zh: '一架巨型客机在巡航高度飞了 11 公里。' },
+    { en: 'You shed about 1.1 million skin cells.',                   zh: '你脱落了约 110 万颗皮肤细胞。' },
+    { en: 'Lightning struck ~1,800 times around the world.',          zh: '全球落雷约 1,800 次。' },
+    { en: 'Earth moved ~1,200 km along its orbit.',                   zh: '地球沿轨道前进了约 1,200 公里。' },
+  ],
+  50: [
+    { en: 'An Olympic swimmer covered ~80 m of butterfly.',           zh: '一名奥运选手游了约 80 米蝶泳。' },
+    { en: 'Your heart beat about 60 times.',                          zh: '你的心脏跳了约 60 次。' },
+    { en: 'A sloth moved ~2 cm — a personal best.',                   zh: '一只树懒挪了 2 厘米——个人最好成绩。' },
+    { en: 'Earth turned ~21 km along its equator.',                   zh: '地球赤道转过了 21 公里。' },
   ],
   60: [
     { en: 'Earth received ~6,000 lightning strikes.',                 zh: '地球上落下了约 6,000 道闪电。' },
@@ -448,6 +547,12 @@ const FACTS = {
     { en: 'About 250 babies were born; ~106 people passed.',          zh: '约有 250 个婴儿出生；约 106 人离世。' },
     { en: 'The Moon drifted ~7 cm farther from the Earth (annual scale, scaled).', zh: '按年比例换算，月亮远离地球约 0.0007 厘米（一分钟份）。' },
     { en: 'A blue whale’s heart beat just 8–10 times.',               zh: '一头蓝鲸的心脏只跳了 8–10 下。' },
+  ],
+  75: [
+    { en: 'The ISS traveled ~580 km.',                                zh: '国际空间站飞过了 580 公里。' },
+    { en: 'About 310 babies were born; ~130 people passed.',          zh: '约 310 个婴儿出生；约 130 人离世。' },
+    { en: 'A redwood added enough wood to cover a fingertip.',        zh: '一棵红杉添了能盖上一个指尖的木质。' },
+    { en: 'Your blood made about 1.25 laps of your body.',            zh: '你的血液在身体里走了约 1.25 圈。' },
   ],
   90: [
     { en: 'Bamboo, in season, grew up to 5 cm.',                      zh: '处于旺季的竹子长高了约 5 厘米。' },
@@ -459,8 +564,13 @@ const FACTS = {
     { en: 'Earth rotated ~50 km along its equator.',                  zh: '地球绕轴自转，赤道走过了约 50 公里。' },
     { en: 'Mars-bound radio signals covered ~36 million km.',         zh: '一束发往火星的无线电信号传播了约 3,600 万公里。' },
     { en: 'A coral polyp added ~0.0007 mm to a reef.',                zh: '一颗珊瑚虫给礁体添了约 0.0007 毫米。' },
-    { en: 'A sloth moved its arm — once, slowly.',                    zh: '一只树懒缓缓抬了一次胳膊。' },
     { en: 'Your stomach lining shed and renewed once.',               zh: '你的胃壁完成了一次脱落与再生。' },
+  ],
+  150: [
+    { en: 'The Sun lost ~600 million tons of mass to fusion.',        zh: '太阳因聚变损失了约 6 亿吨质量。' },
+    { en: 'You took about 37 breaths.',                               zh: '你呼吸了约 37 次。' },
+    { en: 'A jet at cruise covered ~38 km.',                          zh: '一架巡航客机飞过了 38 公里。' },
+    { en: 'About 600 babies were born; ~250 people passed.',          zh: '约 600 个婴儿出生；约 250 人离世。' },
   ],
   180: [
     { en: 'You shared a 3-minute Beatles song with the universe.',    zh: '你与宇宙共度了 3 分钟——大约一首披头士的长度。' },
@@ -468,21 +578,41 @@ const FACTS = {
     { en: 'Three minutes after the Big Bang, the first atomic nuclei stabilized.', zh: '大爆炸后 3 分钟，最早的原子核稳定下来。' },
     { en: 'A boiled egg became firm in the middle.',                  zh: '一颗水煮蛋的中心刚刚煮硬。' },
   ],
+  240: [
+    { en: 'Light bounced between Earth and Moon ~94 times.',          zh: '光在地月之间往返了约 94 次。' },
+    { en: 'A microwave reheated three cups of coffee.',               zh: '一台微波炉热完了三杯咖啡。' },
+    { en: 'The Sun lost ~1 billion tons of mass to fusion.',          zh: '太阳因聚变损失了约 10 亿吨质量。' },
+    { en: 'About 1,000 babies were born; ~430 people passed.',        zh: '约 1,000 个婴儿出生；约 430 人离世。' },
+  ],
   300: [
     { en: 'Light from Mars (at closest) reached us in this time.',    zh: '火星离地球最近时，它的光大概用了这么久才到。' },
     { en: 'A redwood grew the width of a comma.',                     zh: '一棵红杉长出了约一个逗号的宽度。' },
     { en: 'Your brain processed enough data to fill ~2 DVDs.',        zh: '你的大脑处理的信息量够灌满约两张 DVD。' },
     { en: 'The Sun lost ~1.2 billion tons of mass to fusion.',        zh: '太阳因聚变损失了约 12 亿吨质量。' },
   ],
+  450: [
+    { en: 'About 1,100 babies were born; ~480 people passed.',        zh: '约 1,100 个婴儿出生；约 480 人离世。' },
+    { en: 'A cup of tea cooled close to room temperature.',           zh: '一杯红茶差不多凉到了室温。' },
+    { en: 'The ISS completed about 8% of an orbit.',                  zh: '国际空间站走完了一圈轨道的约 8%。' },
+    { en: 'Your gut moved a bite of food ~30 cm along.',              zh: '你的肠子把一口食物推过了约 30 厘米。' },
+  ],
   600: [
     { en: 'You spent enough time to read one short poem twenty times.', zh: '足够你把一首短诗读上二十遍。' },
     { en: 'The Moon moved ~600 km across the night sky.',              zh: '月亮在夜空中划过了约 600 公里。' },
     { en: 'About 1,500 babies were born; ~640 people passed.',         zh: '约有 1,500 个婴儿出生；约 640 人离世。' },
+    { en: 'A short film festival aired two entries.',                  zh: '一场短片节放完了两部入围作品。' },
+  ],
+  900: [
+    { en: 'Sunlight from Pluto’s distance crossed it once.',          zh: '阳光跨过了一次冥王星到太阳的距离。' },
+    { en: 'About 2,300 babies were born; ~970 people passed.',        zh: '约 2,300 个婴儿出生；约 970 人离世。' },
+    { en: 'A low-Earth-orbit satellite nearly completed one lap.',    zh: '一颗近地轨道卫星几乎绕了一整圈。' },
+    { en: 'You blinked about 250 times.',                             zh: '你眨眼约 250 次。' },
   ],
   1800: [
-    { en: 'Roughly a soccer half of universal time passed.',           zh: '与一场足球比赛上半场等长的时间过去了。' },
-    { en: '~90,000 cells in your body have been replaced.',            zh: '你体内约 9 万个细胞已经被替换。' },
-    { en: 'The ISS completed nearly one full orbit (~92 minutes).',    zh: '国际空间站接近完成一圈轨道（约 92 分钟）。' },
+    { en: 'Roughly a soccer half of universal time passed.',          zh: '与一场足球比赛上半场等长的时间过去了。' },
+    { en: '~90,000 cells in your body have been replaced.',           zh: '你体内约 9 万个细胞已经被替换。' },
+    { en: 'The ISS completed nearly one full orbit (~92 minutes).',   zh: '国际空间站接近完成一圈轨道（约 92 分钟）。' },
+    { en: 'About 4,500 babies were born; ~1,900 people passed.',      zh: '约 4,500 个婴儿出生；约 1,900 人离世。' },
   ]
 };
 
@@ -807,17 +937,31 @@ function avalanche(cols, maxes) {
     if (!moved) break;
   }
 }
-function slidePair(cols, maxes, i, j) {
+function slidePair(cols, maxes, i, j, threshold) {
+  const t = (threshold === undefined) ? SLOPE_THRESHOLD : threshold;
   const diff = cols[i] - cols[j];
-  if (diff > SLOPE_THRESHOLD && cols[j] < maxes[j]) {
+  if (diff > t && cols[j] < maxes[j]) {
     cols[i]--; cols[j]++;
     return true;
   }
-  if (diff < -SLOPE_THRESHOLD && cols[i] < maxes[i]) {
+  if (diff < -t && cols[i] < maxes[i]) {
     cols[i]++; cols[j]--;
     return true;
   }
   return false;
+}
+
+// One-shot full-flatten — used right after the post-flip swap. Threshold 0 means
+// any 1-grain column-height difference flows downhill, so the "central crater"
+// shape inherited from the previous chamber (drained-from-middle) collapses to a
+// physically-plausible level pile with center bulge wherever maxes allow.
+function flatten(cols, maxes) {
+  for (let pass = 0; pass < 60; pass++) {
+    let moved = false;
+    for (let i = 0; i < cols.length - 1; i++) moved = slidePair(cols, maxes, i, i+1, 0) || moved;
+    for (let i = cols.length - 2; i >= 0; i--) moved = slidePair(cols, maxes, i, i+1, 0) || moved;
+    if (!moved) break;
+  }
 }
 
 function tickAvalanche(dt) {
@@ -1034,9 +1178,14 @@ function finishFlip() {
     if (botCols[i] > botMax[i]) botCols[i] = botMax[i];
   }
 
-  // No refill, no rain — let the existing avalanche reshape the post-swap
-  // "funnel in new bot / cone in new top" into stable piles over ~1s. The
-  // user sees a natural settle, not an instant snap.
+  // Eliminate the inherited central-crater shape in one shot — the pre-flip
+  // top had been drained from center (V-shape), and after swap that V would
+  // sit in the new bot as "sand piled at the edges, valley in the middle",
+  // which reads as physically wrong. flatten() levels both chambers with a
+  // zero-slope tolerance so any high-side spills down into the dip.
+  flatten(topCols, topMax);
+  flatten(botCols, botMax);
+
   let topCarry = 0;
   for (let i = 0; i < NUM_COLS; i++) topCarry += topCols[i];
 
