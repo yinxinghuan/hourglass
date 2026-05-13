@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0" />
+<meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="theme-color" content="#181010" />
+<meta name="theme-color" content="#0d0708" />
 <title>Hourglass</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,18 +21,49 @@
     -webkit-user-select: none;
     touch-action: none;
     font-family: "Cormorant Garamond", "Times New Roman", serif;
-    background: #060306;
+    background: #050306;
     position: relative;
     color: #e8d4b5;
-    transition: background 1.2s ease;
+    transition: background 1.4s ease;
   }
-  body[data-theme="sahara"]  { background: radial-gradient(ellipse at 50% 38%, #3a1c10 0%, #1a0a06 60%, #060201 100%); }
-  body[data-theme="geode"]   { background: radial-gradient(ellipse at 50% 38%, #1e1233 0%, #0c0820 60%, #02010a 100%); }
-  body[data-theme="glowsand"]{ background: radial-gradient(ellipse at 50% 38%, #051028 0%, #020610 60%, #000204 100%); }
+  body[data-theme="sahara"]   { background: radial-gradient(ellipse at 50% 42%, #2d160c 0%, #160806 55%, #060201 100%); }
+  body[data-theme="geode"]    { background: radial-gradient(ellipse at 50% 42%, #1d1238 0%, #0c0820 55%, #02010c 100%); }
+  body[data-theme="glowsand"] { background: radial-gradient(ellipse at 50% 42%, #051c28 0%, #021018 55%, #00060c 100%); }
 
-  #stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* Subtle aura behind hourglass for theme color */
+  .aura {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.42;
+    z-index: 0;
+    transition: background 1.4s ease, opacity 1.4s ease;
+    mix-blend-mode: screen;
+  }
+  body[data-theme="sahara"]   .aura { background: radial-gradient(circle, #c47840 0%, transparent 70%); }
+  body[data-theme="geode"]    .aura { background: radial-gradient(circle, #8c5cd6 0%, transparent 70%); }
+  body[data-theme="glowsand"] .aura { background: radial-gradient(circle, #40b8c8 0%, transparent 70%); }
 
-  /* Theme switcher pill (top-center) */
+  /* Stage holds vessel image + canvas overlay, both same size */
+  .stage {
+    position: absolute;
+    z-index: 1;
+    pointer-events: auto;
+  }
+  .sand-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    transition: transform 0.85s cubic-bezier(0.5,-0.1,0.5,1.1);
+    will-change: transform;
+  }
+  .stage.is-flipping .sand-canvas { transform: rotate(180deg); }
+  .stage.is-flipped  .sand-canvas { transform: rotate(0deg); }
+
+  /* Theme switcher pill */
   .switcher {
     position: absolute;
     top: max(18px, env(safe-area-inset-top));
@@ -41,11 +73,11 @@
     gap: 4px;
     padding: 4px;
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.30);
+    background: rgba(0, 0, 0, 0.35);
     backdrop-filter: blur(14px) saturate(120%);
     -webkit-backdrop-filter: blur(14px) saturate(120%);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.30);
     z-index: 10;
   }
   .switcher-btn {
@@ -66,7 +98,6 @@
   .switcher-btn.is-active[data-theme="glowsand"] { color: #80f8f8; }
   .switcher-btn svg { display: block; width: 20px; height: 20px; stroke-width: 1.6; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 
-  /* Bottom info strip */
   .status {
     position: absolute;
     bottom: calc(max(20px, env(safe-area-inset-bottom)) + 12px);
@@ -78,13 +109,12 @@
     font-family: ui-monospace, "JetBrains Mono", monospace;
     font-size: 10.5px;
     letter-spacing: 0.22em;
-    color: rgba(232, 220, 200, 0.45);
+    color: rgba(232, 220, 200, 0.50);
     pointer-events: none;
     z-index: 5;
     white-space: nowrap;
   }
   .status-sep { opacity: 0.5; }
-
   .poem {
     position: absolute;
     bottom: calc(max(20px, env(safe-area-inset-bottom)) + 38px);
@@ -94,7 +124,7 @@
     font-style: italic;
     font-size: 15px;
     letter-spacing: 0.02em;
-    color: rgba(232, 218, 188, 0.66);
+    color: rgba(232, 218, 188, 0.68);
     text-align: center;
     max-width: 86vw;
     pointer-events: none;
@@ -104,44 +134,6 @@
     line-height: 1.2;
   }
   .poem.is-visible { opacity: 1; }
-
-  /* Poster mode (?poster=1) — hide chrome, render title above hourglass */
-  body.is-poster .switcher,
-  body.is-poster .hint,
-  body.is-poster .poem,
-  body.is-poster .status { display: none !important; }
-  .poster-title {
-    display: none;
-    position: absolute;
-    top: 11%;
-    left: 0;
-    right: 0;
-    text-align: center;
-    pointer-events: none;
-    z-index: 6;
-  }
-  body.is-poster .poster-title { display: block; }
-  .poster-title .pt-name {
-    font-family: "Cormorant Garamond", "Times New Roman", serif;
-    font-size: 96px;
-    letter-spacing: 0.22em;
-    font-weight: 400;
-    color: rgba(240, 220, 180, 0.96);
-    text-shadow: 0 4px 26px rgba(0,0,0,0.6);
-    line-height: 1;
-    text-transform: uppercase;
-  }
-  .poster-title .pt-sub {
-    margin-top: 14px;
-    font-family: "Cormorant Garamond", "Times New Roman", serif;
-    font-style: italic;
-    font-size: 26px;
-    letter-spacing: 0.04em;
-    color: rgba(232, 212, 178, 0.66);
-    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
-  }
-
-  /* "tap to flip" hint */
   .hint {
     position: absolute;
     bottom: calc(max(20px, env(safe-area-inset-bottom)) + 70px);
@@ -165,21 +157,57 @@
     animation: hintBreathe 3.4s ease-in-out infinite;
   }
   .hint.is-gone { opacity: 0; animation: none; }
-  @keyframes hintBreathe {
-    0%, 100% { opacity: 0.55; }
-    50%      { opacity: 1; }
+  @keyframes hintBreathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+  /* Poster mode */
+  body.is-poster .switcher,
+  body.is-poster .hint,
+  body.is-poster .poem,
+  body.is-poster .status { display: none !important; }
+  .poster-title {
+    display: none;
+    position: absolute;
+    top: 10%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    pointer-events: none;
+    z-index: 6;
+  }
+  body.is-poster .poster-title { display: block; }
+  .poster-title .pt-name {
+    font-family: "Cormorant Garamond", "Times New Roman", serif;
+    font-size: 100px;
+    letter-spacing: 0.22em;
+    font-weight: 400;
+    color: rgba(240, 220, 180, 0.96);
+    text-shadow: 0 4px 26px rgba(0,0,0,0.6);
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .poster-title .pt-sub {
+    margin-top: 14px;
+    font-family: "Cormorant Garamond", "Times New Roman", serif;
+    font-style: italic;
+    font-size: 26px;
+    letter-spacing: 0.04em;
+    color: rgba(232, 212, 178, 0.66);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
   }
 </style>
 </head>
 <body data-theme="sahara">
-  <canvas id="stage"></canvas>
+  <div class="aura" id="aura"></div>
+  <div class="stage" id="stage">
+    <canvas class="sand-canvas" id="sand"></canvas>
+  </div>
 
   <div class="switcher" id="switcher">
     <button class="switcher-btn is-active" data-theme="sahara" aria-label="Sahara">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg>
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>
     </button>
     <button class="switcher-btn" data-theme="geode" aria-label="Geode">
-      <svg viewBox="0 0 24 24"><path d="M12 3L4 9l3 11h10l3-11z"/><path d="M9 9l3 11M15 9l-3 11M4 9h16"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M12 3.2L4.5 9.4l2.7 10.4h9.6l2.7-10.4z"/><path d="M9.5 9.4l2.5 10.4M14.5 9.4l-2.5 10.4M4.5 9.4h15"/></svg>
     </button>
     <button class="switcher-btn" data-theme="glowsand" aria-label="Glowsand">
       <svg viewBox="0 0 24 24"><path d="M3 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M3 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="7" cy="6" r="0.8"/><circle cx="14" cy="5" r="0.8"/><circle cx="19" cy="7" r="0.8"/></svg>
@@ -194,7 +222,7 @@
   <div class="poem" id="poem"></div>
   <div class="hint" id="hint">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3-3 3 3"/><path d="M12 8v8"/><circle cx="12" cy="12" r="10"/></svg>
-    Tap glass
+    Tap to flip
   </div>
   <div class="status" id="status">
     <span class="status-time" id="status-time">00:00</span>
@@ -208,23 +236,20 @@
 'use strict';
 
 // ============================================================
-// THEMES
+// THEMES — vessel image is shared (warm wood/brass for all);
+// per-theme color comes from sand palette + body bg + aura.
 // ============================================================
 const THEMES = {
   sahara: {
     label: 'Sahara',
-    bg:        '#1a0a06',
-    sand:      '#d4a060',
-    sandLight: '#f7d090',
-    sandDark:  '#a06030',
-    wood:      '#5a2812',
-    woodLight: '#8a4a28',
-    woodDark:  '#2a0e04',
-    glassTint: 'rgba(255, 220, 180, 0.04)',
-    glassHi:   'rgba(255, 234, 200, 0.55)',
-    grainGlow: 'rgba(247, 208, 144, 0.12)',
-    accent:    '#f7c890',
-    additive:  false,
+    sandPalette: ['#a8693a', '#c98a4c', '#dca665', '#f0c089', '#e8b478'],
+    sandGlow:    'rgba(247, 208, 144, 0.18)',
+    vesselGlow:  'rgba(255, 196, 120, 0.55)',  // outline glow color
+    vesselTint:  'rgba(247, 178, 96, 0.05)',   // chamber inner haze
+    capAccent:   'rgba(247, 208, 144, 0.85)',  // cap ring
+    motes:       'rgba(255, 200, 130, 0.35)',  // atmospheric particles
+    additive:    true,
+    impactDust:  '#f0c089',
     poems: [
       'Slow as horizons.',
       'Each grain a year.',
@@ -244,18 +269,14 @@ const THEMES = {
   },
   geode: {
     label: 'Geode',
-    bg:        '#0c0820',
-    sand:      '#b894f0',
-    sandLight: '#e0c8ff',
-    sandDark:  '#6c4ab0',
-    wood:      '#a07840',
-    woodLight: '#d4a560',
-    woodDark:  '#4a2e10',
-    glassTint: 'rgba(220, 200, 255, 0.05)',
-    glassHi:   'rgba(240, 220, 255, 0.55)',
-    grainGlow: 'rgba(224, 200, 255, 0.14)',
-    accent:    '#d4b0ff',
-    additive:  false,
+    sandPalette: ['#5d3e94', '#7a5cb8', '#9476d0', '#b394e8', '#d4b8f0'],
+    sandGlow:    'rgba(212, 176, 255, 0.20)',
+    vesselGlow:  'rgba(180, 140, 255, 0.55)',
+    vesselTint:  'rgba(150, 110, 230, 0.05)',
+    capAccent:   'rgba(212, 176, 255, 0.85)',
+    motes:       'rgba(200, 165, 255, 0.40)',
+    additive:    true,
+    impactDust:  '#b394e8',
     poems: [
       'Pressure becomes prism.',
       'The dark refines.',
@@ -275,18 +296,14 @@ const THEMES = {
   },
   glowsand: {
     label: 'Glowsand',
-    bg:        '#020610',
-    sand:      '#3fc0c8',
-    sandLight: '#a0f8f8',
-    sandDark:  '#1a6068',
-    wood:      '#5a6c78',
-    woodLight: '#8a9ca8',
-    woodDark:  '#2a3038',
-    glassTint: 'rgba(160, 230, 240, 0.04)',
-    glassHi:   'rgba(200, 245, 255, 0.55)',
-    grainGlow: 'rgba(160, 248, 248, 0.22)',
-    accent:    '#80f8f8',
-    additive:  true,
+    sandPalette: ['#2c8088', '#3fa5b0', '#5fc4d0', '#8ee0e8', '#c0f4f8'],
+    sandGlow:    'rgba(160, 248, 248, 0.30)',
+    vesselGlow:  'rgba(120, 240, 250, 0.55)',
+    vesselTint:  'rgba(80, 220, 230, 0.05)',
+    capAccent:   'rgba(160, 248, 248, 0.90)',
+    motes:       'rgba(150, 240, 250, 0.45)',
+    additive:    true,
+    impactDust:  '#a0f8f8',
     poems: [
       'Plankton remember light.',
       'The deep counts softly.',
@@ -307,316 +324,385 @@ const THEMES = {
 };
 
 // ============================================================
-// CANVAS SETUP
+// VESSEL GEOMETRY (canvas-drawn misty hourglass — choose freely)
+// Stage is square. Hourglass sits centered, occupies ~80% height.
+// Symmetric bulb chambers via cosine-bell profile.
 // ============================================================
-const canvas = document.getElementById('stage');
+const FRAC = {
+  cx:           0.500,
+  capTop:       0.060,
+  capBot:       0.940,
+  upperTop:     0.085,    // top of upper chamber (just below cap)
+  upperBot:     0.470,    // bottom of upper chamber
+  neckTop:      0.470,
+  neckBot:      0.530,
+  lowerTop:     0.530,
+  lowerBot:     0.915,
+  neckHalfW:    0.018,
+  maxHalfW:     0.165,    // chamber widest half-width (fraction of stage)
+};
+
+// halfW(t) bell curve from t=0 (chamber top) → t=1 (chamber bot, neck width).
+// Bulb peaks around t=0.42 for the upper chamber.
+function upperProfileHalfW(t) {
+  // Smooth shape: starts at 0 (curving down from cap), peaks near t=0.42, narrows
+  // to neckHalfW at t=1.
+  const peakT = 0.42;
+  if (t < peakT) {
+    const u = t / peakT;       // 0..1
+    // Smooth ease from 0 → 1
+    const eased = 0.5 - 0.5 * Math.cos(Math.PI * u);
+    return FRAC.maxHalfW * eased;
+  } else {
+    const u = (t - peakT) / (1 - peakT); // 0..1
+    // From maxHalfW → neckHalfW
+    const eased = 0.5 - 0.5 * Math.cos(Math.PI * u);
+    return FRAC.maxHalfW + (FRAC.neckHalfW - FRAC.maxHalfW) * eased;
+  }
+}
+function lowerProfileHalfW(t) {
+  // Mirror of upper: at t=0 width=neckHalfW; peaks near t=0.58; t=1 width=0
+  return upperProfileHalfW(1 - t);
+}
+
+// ============================================================
+// CANVAS + STAGE SIZING
+// ============================================================
+const canvas = document.getElementById('sand');
 const ctx = canvas.getContext('2d');
+const stage = document.getElementById('stage');
+const aura = document.getElementById('aura');
 let W = 0, H = 0, DPR = 1;
+let stageSize = 0, stageX = 0, stageY = 0;
 
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
   W = window.innerWidth;
   H = window.innerHeight;
-  canvas.width = Math.floor(W * DPR);
-  canvas.height = Math.floor(H * DPR);
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
+
+  const poster = document.body.classList.contains('is-poster');
+  const minDim = Math.min(W, H);
+  if (poster) {
+    stageSize = Math.min(minDim * 0.78, 900);
+    stageX = (W - stageSize) / 2;
+    stageY = H * 0.18;
+  } else {
+    stageSize = Math.min(minDim * 0.92, 760);
+    if (stageSize > H * 0.78) stageSize = H * 0.78;
+    stageX = (W - stageSize) / 2;
+    stageY = (H - stageSize) / 2 - 24;
+  }
+
+  stage.style.left   = stageX + 'px';
+  stage.style.top    = stageY + 'px';
+  stage.style.width  = stageSize + 'px';
+  stage.style.height = stageSize + 'px';
+
+  canvas.width  = Math.floor(stageSize * DPR);
+  canvas.height = Math.floor(stageSize * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  computeGeometry();
+
+  // Aura behind hourglass
+  const auraSize = stageSize * 1.05;
+  aura.style.width  = auraSize + 'px';
+  aura.style.height = auraSize + 'px';
+  aura.style.left   = (W / 2 - auraSize / 2) + 'px';
+  aura.style.top    = (stageY + stageSize / 2 - auraSize / 2) + 'px';
+
   rebuildPiles();
 }
 
 // ============================================================
-// HOURGLASS GEOMETRY
+// CHAMBER WIDTH (piecewise linear interp on the profile)
 // ============================================================
-// Hourglass coordinates (in screen space, hourglass-local origin at center):
-//   - cx, cy: center on screen
-//   - half-height H/2, divided into:
-//       cap (top wood frame) ~ 22px tall
-//       top chamber outline (inverted-V): wide at top, neck at center
-//       neck channel: a small rectangle around y=0
-//       bottom chamber outline (V): neck at center, wide at bottom
-//       cap (bottom wood frame) ~ 22px tall
-const GEO = {
-  cx: 0, cy: 0,
-  totalH: 0,
-  totalW: 0,
-  chamberH: 0,
-  capH: 22,
-  neckH: 12,
-  neckW: 18,
-  topY: 0,      // top of upper cap
-  botY: 0,      // bottom of lower cap
-  upperChamberTopY: 0,
-  upperChamberBotY: 0, // = -neckH/2
-  lowerChamberTopY: 0, // = +neckH/2
-  lowerChamberBotY: 0,
-  halfWAtCap: 0,       // half-width at cap (max chamber width)
-  glassEdgeInset: 4,   // inner glass offset from outline
-};
-
-function computeGeometry() {
-  const poster = document.body.classList.contains('is-poster');
-  GEO.totalH = poster ? Math.min(H * 0.55, 620) : Math.min(H * 0.62, 540);
-  GEO.totalW = poster ? Math.min(W * 0.42, 320) : Math.min(W * 0.62, 280);
-  GEO.cx = W / 2;
-  GEO.cy = poster ? H * 0.62 : H / 2 - 28;
-  GEO.chamberH = (GEO.totalH - 2 * GEO.capH - GEO.neckH) / 2;
-  GEO.topY = GEO.cy - GEO.totalH / 2;
-  GEO.botY = GEO.cy + GEO.totalH / 2;
-  GEO.upperChamberTopY = GEO.topY + GEO.capH;
-  GEO.upperChamberBotY = GEO.cy - GEO.neckH / 2;
-  GEO.lowerChamberTopY = GEO.cy + GEO.neckH / 2;
-  GEO.lowerChamberBotY = GEO.botY - GEO.capH;
-  GEO.halfWAtCap = GEO.totalW / 2;
-}
-
-// Half-width of upper chamber outer wall at world Y (y relative to GEO.cy).
-// Upper chamber spans from y=upperChamberTopY-cy (negative, large mag)
-// to y=upperChamberBotY-cy (= -neckH/2).
-// At top y: half-width = halfWAtCap. At bot: half-width = neckW/2.
-function upperWidthAt(y) {
-  const top = GEO.upperChamberTopY - GEO.cy;
-  const bot = GEO.upperChamberBotY - GEO.cy;
-  if (y < top) return GEO.halfWAtCap; // safety
-  if (y > bot) return GEO.neckW / 2;
-  const t = (y - top) / (bot - top);
-  return GEO.halfWAtCap + (GEO.neckW / 2 - GEO.halfWAtCap) * t;
-}
-function lowerWidthAt(y) {
-  const top = GEO.lowerChamberTopY - GEO.cy;
-  const bot = GEO.lowerChamberBotY - GEO.cy;
-  if (y < top) return GEO.neckW / 2;
-  if (y > bot) return GEO.halfWAtCap;
-  const t = (y - top) / (bot - top);
-  return GEO.neckW / 2 + (GEO.halfWAtCap - GEO.neckW / 2) * t;
+function chamberHalfW(yPx, isUpper) {
+  const cTop = (isUpper ? FRAC.upperTop : FRAC.lowerTop) * stageSize;
+  const cBot = (isUpper ? FRAC.upperBot : FRAC.lowerBot) * stageSize;
+  if (yPx < cTop || yPx > cBot) return 0;
+  const t = (yPx - cTop) / (cBot - cTop);
+  const halfWFrac = isUpper ? upperProfileHalfW(t) : lowerProfileHalfW(t);
+  return halfWFrac * stageSize;
 }
 
 // ============================================================
-// SAND PILES
+// COLUMN-BASED SAND PILE STATE
 // ============================================================
-// We use two sand pools: top and bottom. Each grain has a settled (x,y).
-// Drain: pop the lowest grain in top, mark in-flight; in-flight grains fall
-// through neck into the bottom; bottom slots fill in pre-computed order
-// (center-floor first, alternating outward).
-//
-// Pre-computed top targets: filled from BOTTOM of upper chamber up to top,
-// row by row. Lowest rows are filled first → drain order is "highest = last in".
-// Actually we want LOWEST grain to drain first (the one nearest the neck
-// mouth), so we drain by popping from the LAST-PUSHED (which is upper rows)?
-// No: lowest = first placed. We want lowest to drain first → drain = shift
-// from front. Use a simple sorted approach: sort by y desc (lowest first).
-//
-// Bottom targets: filled from FLOOR upward. So bottom_settled.push(target),
-// next-empty-target is bottom_targets[bottom_settled.length].
+const NUM_COLS = 36;
+let COL_W = 0;
+let GRAIN_H = 0;
+let GRAIN_R = 0;
+let cxPx = 0;
 
-const GRAIN_RADIUS = 1.5;
-const GRAIN_SPACE = 3.4;
-const GRAIN_COUNT_TARGET = 460;
-const DRAIN_INTERVAL_MS = 60;
-const POST_EMPTY_PAUSE_MS = 4500;
-const FLIP_DURATION_MS = 850;
-
-let topTargets = [];      // upper-chamber positions, sorted by y descending (lowest first = drains first)
-let bottomTargets = [];   // lower-chamber positions, sorted by y descending (floor first = settles first)
-let topSettled = [];      // remaining settled grains in top
-let bottomSettled = [];   // accumulated settled grains in bottom
-let bottomReservedCount = 0; // how many bottom-target slots are spoken-for (in-flight + settled)
-let inFlight = [];        // {x, y, vx, vy, target} grains streaming through neck
-let drainAccum = 0;       // ms accumulator for drain
-let emptyTimer = 0;       // ms since top went empty (for auto-flip)
-let flipState = { active: false, t: 0 };
-
-function packChamber(topY, botY, widthFn, count) {
-  // Fill row-by-row from BOTTOM up.
-  const pts = [];
-  let y = botY - GRAIN_RADIUS - 1;
-  const rowH = GRAIN_SPACE * 0.92;
-  while (y > topY + GRAIN_RADIUS && pts.length < count) {
-    const halfW = widthFn(y) - GRAIN_RADIUS - 1;
-    if (halfW < GRAIN_RADIUS) { y -= rowH; continue; }
-    const rowCols = Math.max(1, Math.floor((halfW * 2) / GRAIN_SPACE));
-    const span = (rowCols - 1) * GRAIN_SPACE;
-    for (let i = 0; i < rowCols; i++) {
-      const x = -span / 2 + i * GRAIN_SPACE + (Math.random() - 0.5) * 1.2;
-      const yy = y + (Math.random() - 0.5) * 0.7;
-      pts.push({ x, y: yy });
-      if (pts.length >= count) break;
-    }
-    y -= rowH;
-  }
-  return pts;
-}
+let topCols  = new Int16Array(NUM_COLS);
+let botCols  = new Int16Array(NUM_COLS);
+let topMax   = new Int16Array(NUM_COLS);
+let botMax   = new Int16Array(NUM_COLS);
+let topFloor = new Float32Array(NUM_COLS); // y where column's stack starts
+let botFloor = new Float32Array(NUM_COLS);
+let totalGrains = 0;
 
 function rebuildPiles() {
-  // Local y coords (origin at GEO.cy, +y down).
-  const ucTop = GEO.upperChamberTopY - GEO.cy; // most negative
-  const ucBot = GEO.upperChamberBotY - GEO.cy; // ≈ -neckH/2
-  const lcTop = GEO.lowerChamberTopY - GEO.cy; // ≈ +neckH/2
-  const lcBot = GEO.lowerChamberBotY - GEO.cy; // most positive
+  cxPx = FRAC.cx * stageSize;
+  const maxHWPx = FRAC.maxHalfW * stageSize;
+  COL_W   = (2 * maxHWPx) / NUM_COLS;
+  GRAIN_H = COL_W * 0.78;
+  GRAIN_R = COL_W * 0.62;
 
-  // Angle of repose ≈ 33° for sand → cot ≈ 1.54
-  const REPOSE_RATIO = 1.54;
+  topCols  = new Int16Array(NUM_COLS);
+  botCols  = new Int16Array(NUM_COLS);
+  topMax   = new Int16Array(NUM_COLS);
+  botMax   = new Int16Array(NUM_COLS);
+  topFloor = new Float32Array(NUM_COLS);
+  botFloor = new Float32Array(NUM_COLS);
 
-  // --- Top chamber: drain forms a FUNNEL.
-  // Order grains so center-near-neck drains first, expanding outward + upward.
-  const topPack = packChamber(ucTop, ucBot, upperWidthAt, GRAIN_COUNT_TARGET);
-  topPack.forEach(p => { p._score = Math.abs(p.x) + REPOSE_RATIO * (ucBot - p.y); });
-  topPack.sort((a, b) => a._score - b._score);
-  topTargets = topPack;
-
-  // --- Bottom chamber: settle forms a CONE.
-  // Order so center-floor fills first, then expands outward + upward.
-  const bottomPack = packChamber(lcTop, lcBot, lowerWidthAt, GRAIN_COUNT_TARGET);
-  bottomPack.forEach(p => { p._score = Math.abs(p.x) + REPOSE_RATIO * (lcBot - p.y); });
-  bottomPack.sort((a, b) => a._score - b._score);
-  bottomTargets = bottomPack;
-
-  topSettled = topTargets.slice();
-  bottomSettled = [];
-  bottomReservedCount = 0;
-  inFlight = [];
+  let sum = 0;
+  for (let i = 0; i < NUM_COLS; i++) {
+    const xLocal = (i - (NUM_COLS - 1) / 2) * COL_W;
+    const tb = computeStackBounds(xLocal, true);
+    const bb = computeStackBounds(xLocal, false);
+    topFloor[i] = tb.floor;
+    topMax[i]   = tb.max;
+    botFloor[i] = bb.floor;
+    botMax[i]   = bb.max;
+    topCols[i]  = topMax[i];
+    botCols[i]  = 0;
+    sum += topMax[i];
+  }
+  totalGrains = sum;
+  inFlight.length = 0;
   drainAccum = 0;
+  avalAccum = 0;
   emptyTimer = 0;
-  flipState = { active: false, t: 0 };
+}
+
+function computeStackBounds(xLocal, isUpper) {
+  // A column at xLocal can hold grains in the vertical range where the chamber
+  // wall half-width is >= |xLocal|. The "floor" is the largest y in that range
+  // (physically lowest), where the stack starts. Max grain count = vertical
+  // range / GRAIN_H.
+  const absX = Math.abs(xLocal);
+  const cTop = (isUpper ? FRAC.upperTop : FRAC.lowerTop) * stageSize;
+  const cBot = (isUpper ? FRAC.upperBot : FRAC.lowerBot) * stageSize;
+  const step = Math.max(0.5, GRAIN_H * 0.25);
+  // Find yFloor: largest y where halfW(y) >= absX
+  let yFloor = cBot;
+  while (yFloor > cTop && chamberHalfW(yFloor, isUpper) < absX + 0.6) {
+    yFloor -= step;
+  }
+  // Find yCeil: smallest y where halfW(y) >= absX
+  let yCeil = cTop;
+  while (yCeil < cBot && chamberHalfW(yCeil, isUpper) < absX + 0.6) {
+    yCeil += step;
+  }
+  if (yFloor <= yCeil) return { floor: yFloor, max: 0 };
+  const max = Math.max(0, Math.floor((yFloor - yCeil) / GRAIN_H) - 1);
+  return { floor: yFloor, max };
 }
 
 // ============================================================
-// FLIP
+// IN-FLIGHT GRAINS + DUST
 // ============================================================
-function startFlip() {
-  if (flipState.active) return;
-  flipState = { active: true, t: 0 };
-  hideHint();
-  spawnFlipBurst();
+const inFlight = []; // {x, y, vx, vy, hue, size}
+const dust = [];     // {x, y, vx, vy, life, max, hue}
+const sparkles = []; // tap sparkles {x, y, vx, vy, life, max}
+
+function spawnStreamGrain() {
+  const neckTopPx = FRAC.neckTop * stageSize;
+  const neckHWPx  = FRAC.neckHalfW * stageSize;
+  inFlight.push({
+    x: cxPx + (Math.random() - 0.5) * neckHWPx * 1.2,
+    y: neckTopPx + 1,
+    vx: (Math.random() - 0.5) * 18,
+    vy: 70 + Math.random() * 40,
+    hueIdx: Math.floor(Math.random() * 5),
+    size: GRAIN_R * (0.85 + Math.random() * 0.3),
+  });
 }
 
-function finishFlip() {
-  // After visually rotating 180°, what was in the bottom is now on top.
-  // topTargets is sorted lowest-first; refilling the lowest N slots gives a
-  // coherent pile of that height (drain still pops lowest = newest first).
-  const carryCount = bottomSettled.length;
-  topSettled = topTargets.slice(0, carryCount);
-  bottomSettled = [];
-  bottomReservedCount = 0;
-  inFlight = [];
-  drainAccum = 0;
-  emptyTimer = 0;
-  flipState = { active: false, t: 0 };
+function spawnDust(x, y, theme) {
+  for (let i = 0; i < 3; i++) {
+    dust.push({
+      x: x + (Math.random() - 0.5) * COL_W,
+      y: y - 2,
+      vx: (Math.random() - 0.5) * 36,
+      vy: -10 - Math.random() * 38,
+      life: 0,
+      max: 280 + Math.random() * 240,
+    });
+  }
 }
-
-// ============================================================
-// SAND SIMULATION
-// ============================================================
-function startDrain(dt) {
-  if (flipState.active) return;
-  if (topSettled.length === 0) return;
-  drainAccum += dt;
-  while (drainAccum >= DRAIN_INTERVAL_MS && topSettled.length > 0) {
-    drainAccum -= DRAIN_INTERVAL_MS;
-    // Pop the lowest settled grain in top (front of array — sorted desc by y)
-    const grain = topSettled.shift();
-    // Launch it through the neck with a small inward velocity
-    inFlight.push({
-      x: grain.x + (Math.random() - 0.5) * 1.2,
-      y: grain.y,
-      vx: -grain.x * 1.2, // bias toward neck center
-      vy: 30 + Math.random() * 20,
-      target: null // assigned when entering bottom chamber
+function spawnSparkle(x, y) {
+  for (let i = 0; i < 6; i++) {
+    sparkles.push({
+      x: x + (Math.random() - 0.5) * 8,
+      y: y + (Math.random() - 0.5) * 8,
+      vx: (Math.random() - 0.5) * 40,
+      vy: -10 - Math.random() * 40,
+      life: 0,
+      max: 600 + Math.random() * 400,
+    });
+  }
+}
+function spawnFlipBurst() {
+  for (let i = 0; i < 28; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * 30;
+    sparkles.push({
+      x: cxPx + Math.cos(a) * r,
+      y: stageSize / 2 + Math.sin(a) * r,
+      vx: Math.cos(a) * (50 + Math.random() * 80),
+      vy: Math.sin(a) * (50 + Math.random() * 80),
+      life: 0,
+      max: 700 + Math.random() * 500,
     });
   }
 }
 
-function stepInFlight(dt) {
+// ============================================================
+// DRAIN + AVALANCHE
+// ============================================================
+const DRAIN_INTERVAL_MS = 75;
+const AVALANCHE_INTERVAL_MS = 24; // ≈ every frame
+const SLOPE_THRESHOLD = 1; // angle-of-repose: diff > 1 is unstable
+const POST_EMPTY_PAUSE_MS = 4500;
+
+let drainAccum = 0;
+let avalAccum = 0;
+let emptyTimer = 0;
+
+function tickDrain(dt) {
+  if (flipState.active) return;
+  drainAccum += dt;
+  while (drainAccum >= DRAIN_INTERVAL_MS) {
+    drainAccum -= DRAIN_INTERVAL_MS;
+    // Pop from the lowest non-empty column nearest center
+    const ci = Math.floor(NUM_COLS / 2);
+    let drainIdx = -1;
+    for (let r = 0; r <= NUM_COLS / 2; r++) {
+      const a = ci - r, b = ci + r;
+      if (a >= 0 && topCols[a] > 0) { drainIdx = a; break; }
+      if (b < NUM_COLS && b !== a && topCols[b] > 0) { drainIdx = b; break; }
+    }
+    if (drainIdx < 0) return;
+    topCols[drainIdx]--;
+    spawnStreamGrain();
+  }
+}
+
+function avalanche(cols, maxes) {
+  // Multi-pass settle until stable (capped). Two-direction sweep per outer pass
+  // avoids any left/right bias accumulating into a tilt.
+  for (let pass = 0; pass < 12; pass++) {
+    let moved = false;
+    for (let i = 0; i < cols.length - 1; i++) moved = slidePair(cols, maxes, i, i+1) || moved;
+    for (let i = cols.length - 2; i >= 0; i--) moved = slidePair(cols, maxes, i, i+1) || moved;
+    if (!moved) break;
+  }
+}
+function slidePair(cols, maxes, i, j) {
+  const diff = cols[i] - cols[j];
+  if (diff > SLOPE_THRESHOLD && cols[j] < maxes[j]) {
+    cols[i]--; cols[j]++;
+    return true;
+  }
+  if (diff < -SLOPE_THRESHOLD && cols[i] < maxes[i]) {
+    cols[i]++; cols[j]--;
+    return true;
+  }
+  return false;
+}
+
+function tickAvalanche(dt) {
+  avalAccum += dt;
+  if (avalAccum < AVALANCHE_INTERVAL_MS) return;
+  avalAccum = 0;
+  avalanche(topCols, topMax);
+  avalanche(botCols, botMax);
+}
+
+// ============================================================
+// IN-FLIGHT STEP
+// ============================================================
+function stepInFlight(dt, theme) {
   const dts = dt / 1000;
-  const gx = gravityRef.x * 800;
-  const gy = gravityRef.y * 800;
+  const gxv = gravityRef.x * 1200;
+  const gyv = gravityRef.y * 1200;
+  const neckHWPx = FRAC.neckHalfW * stageSize - 0.5;
+  const neckBotPx = FRAC.neckBot * stageSize;
+  const lcBotPx = FRAC.lowerBot * stageSize;
+
   for (let i = inFlight.length - 1; i >= 0; i--) {
     const p = inFlight[i];
-    p.vx += gx * dts;
-    p.vy += gy * dts;
-    // Damp velocity slightly to avoid runaway
-    p.vx *= 0.995;
+    p.vx += gxv * dts;
+    p.vy += gyv * dts;
+    p.vx *= 0.992;
     p.x += p.vx * dts;
     p.y += p.vy * dts;
 
-    // Neck constraint (clamp x within neck width while inside neck region)
-    const inNeck = p.y > -GEO.neckH / 2 - 2 && p.y < GEO.neckH / 2 + 2;
-    if (inNeck) {
-      const limit = GEO.neckW / 2 - GRAIN_RADIUS - 0.5;
-      if (p.x > limit)  { p.x = limit;  p.vx = -Math.abs(p.vx) * 0.3; }
-      if (p.x < -limit) { p.x = -limit; p.vx = Math.abs(p.vx) * 0.3; }
+    // Neck constraint while inside neck region
+    if (p.y > FRAC.neckTop * stageSize - 1 && p.y < neckBotPx + 1) {
+      const dxC = p.x - cxPx;
+      if (dxC > neckHWPx)  { p.x = cxPx + neckHWPx;  p.vx = -Math.abs(p.vx) * 0.35; }
+      if (dxC < -neckHWPx) { p.x = cxPx - neckHWPx;  p.vx =  Math.abs(p.vx) * 0.35; }
     }
 
-    // Once below neck, reserve the next bottom slot
-    if (!p.target && p.y > GEO.lowerChamberTopY - GEO.cy + 4) {
-      const next = bottomTargets[bottomReservedCount];
-      if (next) {
-        p.target = next;
-        bottomReservedCount++;
-      } else {
-        // Bottom is full — just disappear
+    // Past neck — check landing on bottom pile
+    if (p.y > neckBotPx) {
+      // Clamp inside chamber walls
+      const hwHere = chamberHalfW(p.y, false);
+      if (hwHere > 0) {
+        const dxC = p.x - cxPx;
+        if (Math.abs(dxC) > hwHere - GRAIN_R) {
+          p.x = cxPx + Math.sign(dxC) * (hwHere - GRAIN_R);
+          p.vx *= -0.3;
+        }
+      }
+      const xLocal = p.x - cxPx;
+      const colF = xLocal / COL_W + (NUM_COLS - 1) / 2;
+      let colIdx = Math.round(colF);
+      colIdx = Math.max(0, Math.min(NUM_COLS - 1, colIdx));
+      const stackTopY = botFloor[colIdx] - botCols[colIdx] * GRAIN_H - GRAIN_H * 0.5;
+
+      if (p.y >= stackTopY) {
+        let placedCol = -1;
+        if (botCols[colIdx] < botMax[colIdx]) {
+          botCols[colIdx]++;
+          placedCol = colIdx;
+        } else {
+          // Try adjacent shorter cols
+          for (const a of [colIdx - 1, colIdx + 1]) {
+            if (a >= 0 && a < NUM_COLS && botCols[a] < botMax[a]) {
+              botCols[a]++;
+              placedCol = a;
+              break;
+            }
+          }
+        }
+        if (placedCol >= 0) {
+          spawnDust(p.x, stackTopY, theme);
+        }
         inFlight.splice(i, 1);
         continue;
       }
     }
 
-    // If we have a target, magnetize toward it
-    if (p.target) {
-      const dx = p.target.x - p.x;
-      const dy = p.target.y - p.y;
-      const dist = Math.hypot(dx, dy);
-      // Settle if close OR if we've passed target.y (overshoot)
-      if (dist < 4 || p.y >= p.target.y - 0.5) {
-        bottomSettled.push(p.target);
-        inFlight.splice(i, 1);
-        continue;
-      }
-      // Steering pull (stronger when farther so high-velocity grains still curve in)
-      if (dist < 90) {
-        const pull = 2200 * dts;
-        p.vx += (dx / dist) * pull;
-        p.vy += (dy / dist) * pull;
-        // Damp vy to avoid overshoot
-        p.vy *= 0.92;
-      }
-    }
-
-    // Safety: if a grain falls way out of bounds, drop it
-    if (p.y > GEO.totalH || p.y < -GEO.totalH || Math.abs(p.x) > GEO.totalW) {
+    // OOB
+    if (p.y > stageSize * 1.1 || Math.abs(p.x - cxPx) > stageSize) {
       inFlight.splice(i, 1);
     }
   }
 }
 
-// ============================================================
-// SPARKLES (visual disturbance on tap)
-// ============================================================
-let sparkles = []; // {x, y, life, max}
-function spawnSparkle(worldX, worldY) {
-  for (let i = 0; i < 6; i++) {
-    sparkles.push({
-      x: worldX + (Math.random() - 0.5) * 6,
-      y: worldY + (Math.random() - 0.5) * 6,
-      vx: (Math.random() - 0.5) * 30,
-      vy: -20 - Math.random() * 30,
-      life: 0,
-      max: 600 + Math.random() * 400
-    });
-  }
-}
-function spawnFlipBurst() {
-  for (let i = 0; i < 30; i++) {
-    const ang = Math.random() * Math.PI * 2;
-    const dist = Math.random() * 30;
-    sparkles.push({
-      x: Math.cos(ang) * dist,
-      y: Math.sin(ang) * dist,
-      vx: Math.cos(ang) * (40 + Math.random() * 80),
-      vy: Math.sin(ang) * (40 + Math.random() * 80),
-      life: 0,
-      max: 700 + Math.random() * 500
-    });
+function stepDust(dt) {
+  const dts = dt / 1000;
+  for (let i = dust.length - 1; i >= 0; i--) {
+    const d = dust[i];
+    d.life += dt;
+    if (d.life > d.max) { dust.splice(i, 1); continue; }
+    d.vy += 220 * dts;
+    d.vx *= 0.95;
+    d.x += d.vx * dts;
+    d.y += d.vy * dts;
   }
 }
 function stepSparkles(dt) {
@@ -625,27 +711,482 @@ function stepSparkles(dt) {
     const s = sparkles[i];
     s.life += dt;
     if (s.life > s.max) { sparkles.splice(i, 1); continue; }
-    s.vy += 200 * dts;
+    s.vy += 220 * dts;
+    s.vx *= 0.96;
     s.x += s.vx * dts;
     s.y += s.vy * dts;
   }
 }
 
 // ============================================================
+// AUTO-FLIP (bounded preload-safe attract)
+// ============================================================
+function tickAutoFlip(dt) {
+  if (flipState.active) return;
+  // Empty when no top grains AND no in-flight
+  let topSum = 0;
+  for (let i = 0; i < NUM_COLS; i++) topSum += topCols[i];
+  if (topSum === 0 && inFlight.length === 0) {
+    emptyTimer += dt;
+    if (emptyTimer > POST_EMPTY_PAUSE_MS) {
+      startFlip();
+    }
+  } else {
+    emptyTimer = 0;
+  }
+}
+
+// ============================================================
+// FLIP
+// ============================================================
+const FLIP_DURATION_MS = 850;
+let flipState = { active: false, t: 0 };
+let stageFlipped = false; // tracks visual orientation
+
+function startFlip() {
+  if (flipState.active) return;
+  flipState = { active: true, t: 0 };
+  hideHint();
+  spawnFlipBurst();
+  // Trigger CSS rotation
+  stageFlipped = !stageFlipped;
+  stage.classList.toggle('is-flipping', !stageFlipped); // 180deg
+  stage.classList.toggle('is-flipped', stageFlipped);   // back to 0
+}
+function finishFlip() {
+  // After visual rotation, what was bottom becomes top.
+  // Because stage rotated, our canvas coords are visually mirrored.
+  // We "absorb" this by swapping col arrays so the rest of the sim sees
+  // a normal "top full / bottom empty" state on its own coord frame.
+  const t = topCols;
+  const tm = topMax;
+  topCols = botCols;
+  topMax = botMax;
+  botCols = t;
+  botMax = tm;
+  // BUT: visually after rotation, the new top is the rotated bottom — which
+  // contains whatever grains had collected. Visually that fills the new top.
+  // We want sim coords aligned: new top = (carryCount filled grains, lowest cols);
+  // We'll just reset the sim cleanly using the carry count.
+  let carry = 0;
+  for (let i = 0; i < NUM_COLS; i++) carry += topCols[i];
+  // Reset cols to a clean centered fill of `carry` grains in the new top
+  for (let i = 0; i < NUM_COLS; i++) { topCols[i] = 0; botCols[i] = 0; }
+  // Refill top: distribute carry into max-cols starting from center outward
+  refillFromCenter(topCols, topMax, carry);
+  inFlight.length = 0;
+  drainAccum = 0;
+  emptyTimer = 0;
+  flipState = { active: false, t: 0 };
+}
+function refillFromCenter(cols, maxes, count) {
+  // Greedy: while count > 0, add 1 to the column with the *lowest* current
+  // height (preferring center on ties). Naturally builds a flat-then-curving
+  // pile that respects max height.
+  let safety = 5000;
+  const ci = Math.floor(NUM_COLS / 2);
+  while (count > 0 && safety-- > 0) {
+    // Find min height with room
+    let minH = Infinity, minIdx = -1;
+    for (let r = 0; r <= NUM_COLS / 2; r++) {
+      for (const i of [ci - r, ci + r]) {
+        if (i < 0 || i >= NUM_COLS || i === minIdx) continue;
+        if (cols[i] >= maxes[i]) continue;
+        if (cols[i] < minH) { minH = cols[i]; minIdx = i; }
+      }
+    }
+    if (minIdx < 0) break;
+    cols[minIdx]++;
+    count--;
+  }
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function rgbaWithAlpha(rgba, newAlpha) {
+  // input like 'rgba(160, 248, 248, 0.22)' or 'rgba(...)'
+  return rgba.replace(/[\d.]+\)$/, newAlpha + ')');
+}
+
+function frame(now) {
+  if (!lastFrameTime) lastFrameTime = now;
+  const dt = Math.min(40, now - lastFrameTime);
+  lastFrameTime = now;
+
+  // smooth gravity
+  gravityRef.x += (gravityRaw.x - gravityRef.x) * 0.18;
+  gravityRef.y += (gravityRaw.y - gravityRef.y) * 0.18;
+
+  const theme = THEMES[currentTheme];
+  tickDrain(dt);
+  stepInFlight(dt, theme);
+  tickAvalanche(dt);
+  stepDust(dt);
+  stepSparkles(dt);
+  stepMotes(dt);
+  if (flipState.active) {
+    flipState.t += dt;
+    if (flipState.t >= FLIP_DURATION_MS) finishFlip();
+  }
+  tickAutoFlip(dt);
+
+  render(theme);
+  requestAnimationFrame(frame);
+}
+
+function render(theme) {
+  ctx.clearRect(0, 0, stageSize, stageSize);
+
+  // Order matters: atmosphere behind everything, then vessel chamber tint,
+  // then sand piles, then stream/dust, then glass outline glow on top.
+  drawAtmosphere(theme);
+  drawChamberTint(theme);
+
+  if (theme.additive) ctx.globalCompositeOperation = 'lighter';
+
+  // Sand piles
+  drawColumns(theme, topCols, topFloor);
+  drawColumns(theme, botCols, botFloor);
+
+  // In-flight stream
+  for (let i = 0; i < inFlight.length; i++) {
+    const p = inFlight[i];
+    drawGrain(theme, p.x, p.y, p.size, p.hueIdx);
+  }
+
+  // Dust
+  for (let i = 0; i < dust.length; i++) {
+    const d = dust[i];
+    const u = d.life / d.max;
+    const a = (1 - u) * 0.55;
+    ctx.fillStyle = theme.impactDust;
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, GRAIN_R * (0.6 + u * 0.4), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Sparkles (tap + flip burst)
+  for (let i = 0; i < sparkles.length; i++) {
+    const s = sparkles[i];
+    const u = s.life / s.max;
+    const a = (1 - u) * 0.75;
+    ctx.fillStyle = theme.sandPalette[3];
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, GRAIN_R * (1.0 + u * 1.2), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Misty glass outline + cap rings on top — the "vessel"
+  drawVesselOutline(theme);
+  drawCapRings(theme);
+
+  if (window.__renderDebugOutline) drawDebugChamberOutline();
+}
+
+// ============================================================
+// MISTY VESSEL RENDERING (canvas-drawn, atmospheric)
+// ============================================================
+function pathHourglassOutline() {
+  // Walk both chambers' walls into one closed path.
+  const ucTop = FRAC.upperTop * stageSize;
+  const ucBot = FRAC.upperBot * stageSize;
+  const lcTop = FRAC.lowerTop * stageSize;
+  const lcBot = FRAC.lowerBot * stageSize;
+  const STEP = 2;
+  ctx.beginPath();
+  // Upper left wall (top → bot)
+  for (let y = ucTop; y <= ucBot; y += STEP) {
+    const hw = chamberHalfW(y, true);
+    if (y === ucTop) ctx.moveTo(cxPx - hw, y);
+    else ctx.lineTo(cxPx - hw, y);
+  }
+  // Lower left wall (top → bot)
+  for (let y = lcTop; y <= lcBot; y += STEP) {
+    const hw = chamberHalfW(y, false);
+    ctx.lineTo(cxPx - hw, y);
+  }
+  // Cross bottom
+  ctx.lineTo(cxPx + chamberHalfW(lcBot, false), lcBot);
+  // Lower right wall (bot → top)
+  for (let y = lcBot; y >= lcTop; y -= STEP) {
+    const hw = chamberHalfW(y, false);
+    ctx.lineTo(cxPx + hw, y);
+  }
+  // Upper right wall (bot → top)
+  for (let y = ucBot; y >= ucTop; y -= STEP) {
+    const hw = chamberHalfW(y, true);
+    ctx.lineTo(cxPx + hw, y);
+  }
+  ctx.closePath();
+}
+
+function drawChamberTint(theme) {
+  // Soft inner haze inside the chamber outline — gives the glass body color.
+  pathHourglassOutline();
+  ctx.save();
+  ctx.clip();
+  // Radial glow centered on chamber middle
+  const midY = stageSize * 0.5;
+  const g = ctx.createRadialGradient(cxPx, midY, 0, cxPx, midY, stageSize * 0.45);
+  g.addColorStop(0, theme.vesselTint);
+  g.addColorStop(0.5, theme.vesselTint.replace(/[\d.]+\)$/, '0.03)'));
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, stageSize, stageSize);
+  ctx.restore();
+}
+
+function drawVesselOutline(theme) {
+  // Multi-stroke glow — wide soft underlayer, then crisper top stroke.
+  // Use shadowBlur for soft halo, multiple passes for layered glow.
+  ctx.save();
+  const layers = [
+    { blur: 28, width: 4, alpha: 0.18, color: theme.vesselGlow },
+    { blur: 14, width: 2.2, alpha: 0.35, color: theme.vesselGlow },
+    { blur: 6,  width: 1.2, alpha: 0.62, color: theme.vesselGlow },
+    { blur: 0,  width: 0.55, alpha: 0.88, color: 'rgba(255, 246, 230, 0.9)' },
+  ];
+  for (const L of layers) {
+    pathHourglassOutline();
+    ctx.shadowBlur = L.blur;
+    ctx.shadowColor = L.color;
+    ctx.lineWidth = L.width;
+    ctx.strokeStyle = L.color.replace(/[\d.]+\)$/, L.alpha + ')');
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCapRings(theme) {
+  // Cap rings: two soft horizontal arcs at top + bottom, mostly decorative.
+  const ucTop = FRAC.upperTop * stageSize;
+  const lcBot = FRAC.lowerBot * stageSize;
+  const capTopY = FRAC.capTop * stageSize;
+  const capBotY = FRAC.capBot * stageSize;
+  const ringW = chamberHalfW(ucTop + 1, true) * 2 + 30;
+
+  ctx.save();
+  for (const [yMid, isTop] of [[ (ucTop + capTopY) / 2, true ], [ (lcBot + capBotY) / 2, false ]]) {
+    // Two horizontal lines: outer wider, inner thinner
+    ctx.shadowBlur = 16;
+    ctx.shadowColor = theme.vesselGlow;
+    const ringStart = cxPx - ringW / 2;
+    const ringEnd = cxPx + ringW / 2;
+    // Outer ring — soft fade
+    ctx.lineWidth = 2.8;
+    ctx.strokeStyle = theme.capAccent.replace(/[\d.]+\)$/, '0.32)');
+    ctx.beginPath();
+    ctx.moveTo(ringStart, yMid - 5);
+    ctx.lineTo(ringEnd, yMid - 5);
+    ctx.stroke();
+    // Inner ring — crisper
+    ctx.lineWidth = 1.2;
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = theme.capAccent;
+    ctx.beginPath();
+    ctx.moveTo(ringStart + 4, yMid + 2);
+    ctx.lineTo(ringEnd - 4, yMid + 2);
+    ctx.stroke();
+    // Tiny accents at the ring corners
+    ctx.lineWidth = 0;
+    ctx.fillStyle = theme.capAccent;
+    ctx.beginPath();
+    ctx.arc(ringStart, yMid - 5, 1.6, 0, Math.PI * 2);
+    ctx.arc(ringEnd, yMid - 5, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ============================================================
+// ATMOSPHERIC MOTES (bounded floating particles)
+// ============================================================
+const MOTE_COUNT = 38;
+let motes = []; // { x, y, vx, vy, phase, r }
+
+function initMotes() {
+  motes = [];
+  for (let i = 0; i < MOTE_COUNT; i++) {
+    motes.push({
+      x: Math.random() * stageSize,
+      y: Math.random() * stageSize,
+      vx: (Math.random() - 0.5) * 0.18,
+      vy: (Math.random() - 0.5) * 0.18,
+      phase: Math.random() * Math.PI * 2,
+      r: 0.6 + Math.random() * 1.7,
+    });
+  }
+}
+
+function stepMotes(dt) {
+  if (motes.length === 0) initMotes();
+  const dts = dt / 1000;
+  for (const m of motes) {
+    m.phase += dts * 0.6;
+    m.x += m.vx + Math.sin(m.phase) * 0.12;
+    m.y += m.vy + Math.cos(m.phase * 0.83) * 0.10;
+    if (m.x < -10) m.x = stageSize + 10;
+    if (m.x > stageSize + 10) m.x = -10;
+    if (m.y < -10) m.y = stageSize + 10;
+    if (m.y > stageSize + 10) m.y = -10;
+  }
+}
+
+function drawAtmosphere(theme) {
+  if (motes.length === 0) initMotes();
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const m of motes) {
+    const a = 0.4 + 0.4 * Math.sin(m.phase);
+    ctx.fillStyle = theme.motes.replace(/[\d.]+\)$/, (a * 0.6).toFixed(3) + ')');
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.r * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = theme.motes;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawDebugChamberOutline() {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 0, 100, 0.85)';
+  ctx.lineWidth = 1;
+  for (const isUpper of [true, false]) {
+    const cTop = (isUpper ? FRAC.upperTop : FRAC.lowerTop) * stageSize;
+    const cBot = (isUpper ? FRAC.upperBot : FRAC.lowerBot) * stageSize;
+    ctx.beginPath();
+    let started = false;
+    for (let y = cTop; y <= cBot; y += 1) {
+      const hw = chamberHalfW(y, isUpper);
+      if (!started) { ctx.moveTo(cxPx - hw, y); started = true; }
+      else ctx.lineTo(cxPx - hw, y);
+    }
+    for (let y = cBot; y >= cTop; y -= 1) {
+      const hw = chamberHalfW(y, isUpper);
+      ctx.lineTo(cxPx + hw, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawColumns(theme, cols, floorArr) {
+  // Render pile in two phases:
+  //   1) silhouette — a smooth filled path joining each column's floor (bottom)
+  //      to its top (height), giving a continuous surface (no per-column staircase)
+  //   2) surface texture — jittered grain dots on the topmost rows for tactile detail
+  const palette = theme.sandPalette;
+  const additive = theme.additive;
+  const base = palette[Math.floor(palette.length / 2)];
+  const dark = palette[Math.max(0, Math.floor(palette.length / 2) - 1)];
+
+  // Find continuous non-empty runs (the pile can have empty center funnel +
+  // two side wings, in which case we draw each wing as a separate filled shape).
+  let i = 0;
+  while (i < NUM_COLS) {
+    if (cols[i] <= 0) { i++; continue; }
+    const start = i;
+    while (i < NUM_COLS && cols[i] > 0) i++;
+    const end = i - 1;
+    drawPileRun(cols, floorArr, start, end, base, dark);
+    drawPileRunTexture(cols, floorArr, start, end, palette, additive, theme.sandGlow);
+  }
+}
+
+function drawPileRun(cols, floorArr, start, end, baseColor, darkColor) {
+  ctx.beginPath();
+  for (let j = start; j <= end; j++) {
+    const xCenter = cxPx + (j - (NUM_COLS - 1) / 2) * COL_W;
+    const y = floorArr[j];
+    if (j === start) ctx.moveTo(xCenter, y);
+    else ctx.lineTo(xCenter, y);
+  }
+  for (let j = end; j >= start; j--) {
+    const xCenter = cxPx + (j - (NUM_COLS - 1) / 2) * COL_W;
+    const topY = floorArr[j] - cols[j] * GRAIN_H;
+    ctx.lineTo(xCenter, topY);
+  }
+  ctx.closePath();
+  // Slight vertical gradient (lighter at top edge, base color elsewhere)
+  const minTop = Math.min(...Array.from(cols.slice(start, end + 1)).map((c, k) => floorArr[start + k] - c * GRAIN_H));
+  const maxBot = Math.max(...Array.from(cols.slice(start, end + 1)).map((_, k) => floorArr[start + k]));
+  if (isFinite(minTop) && isFinite(maxBot) && maxBot > minTop) {
+    const g = ctx.createLinearGradient(0, minTop, 0, maxBot);
+    g.addColorStop(0, baseColor);
+    g.addColorStop(1, darkColor);
+    ctx.fillStyle = g;
+  } else {
+    ctx.fillStyle = baseColor;
+  }
+  ctx.fill();
+}
+
+function drawPileRunTexture(cols, floorArr, start, end, palette, additive, sandGlow) {
+  // Only render texture on top ~3 grain rows of each column — that's the visible surface.
+  for (let j = start; j <= end; j++) {
+    const h = cols[j];
+    if (h === 0) continue;
+    const xCenter = cxPx + (j - (NUM_COLS - 1) / 2) * COL_W;
+    const floorY = floorArr[j];
+    const visStart = Math.max(0, h - 3);
+    for (let k = visStart; k < h; k++) {
+      const jx = ((Math.sin(j * 7.31 + k * 3.97) + Math.cos(j * 1.93 + k * 11.0)) * 0.32) * COL_W * 0.40;
+      const jy = (Math.sin(j * 4.21 + k * 5.13)) * GRAIN_H * 0.14;
+      const gx = xCenter + jx;
+      const gy = floorY - ((k + 0.5) * GRAIN_H) + jy;
+      const tone = (Math.sin(j * 9.7 + k * 6.3) + Math.cos(j * 2.1 + k * 13.1)) * 0.5 + 0.5;
+      const paletteIdx = Math.floor(tone * (palette.length - 0.001));
+      ctx.fillStyle = palette[paletteIdx];
+      const r = GRAIN_R * (0.55 + ((tone * 2 + j * 0.13) % 1) * 0.30);
+      ctx.beginPath();
+      ctx.arc(gx, gy, r, 0, Math.PI * 2);
+      ctx.fill();
+      if (additive && (j + k) % 3 === 0) {
+        ctx.fillStyle = sandGlow;
+        ctx.beginPath();
+        ctx.arc(gx, gy, r * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function drawGrain(theme, x, y, size, hueIdx) {
+  const palette = theme.sandPalette;
+  ctx.fillStyle = palette[hueIdx % palette.length];
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
+  if (theme.additive) {
+    ctx.fillStyle = theme.sandGlow;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ============================================================
 // SENSOR BRIDGE
 // ============================================================
-// Three paths share one gravity vector + flip detector.
-// 1. Aigram postMessage bridge (TG.ACCELEROMETER) — primary in Aigram embed
-// 2. Telegram.WebApp direct API
-// 3. DOM deviceorientation + devicemotion (Safari standalone w/ permission)
-const gravityRef = { x: 0, y: 1 };       // current gravity unit vector (post-smoothing)
-const gravityRaw = { x: 0, y: 1 };       // immediate raw read
+const gravityRef = { x: 0, y: 1 };
+const gravityRaw = { x: 0, y: 1 };
 let lastZSign = 1;
-let zFlipDetector = { value: 1, accum: 0 };
+let zFlipDetector = { accum: 0 };
 let sensorActive = false;
+let aigramActive = false;
 
 function applyAccel(ax, ay, az) {
-  // ax, ay, az in m/s^2 (gravity ~ 9.8). Bail if reading is empty.
   if ((ax === 0 && ay === 0 && az === 0) || ax == null || ay == null) return;
   let gx = ax / 9.8;
   let gy = -ay / 9.8;
@@ -655,7 +1196,6 @@ function applyAccel(ax, ay, az) {
   gravityRaw.y = gy;
   sensorActive = true;
 
-  // Detect flip: z-axis sign change with high magnitude
   if (typeof az === 'number') {
     const zSign = az < 0 ? -1 : 1;
     if (zSign !== lastZSign) {
@@ -663,40 +1203,26 @@ function applyAccel(ax, ay, az) {
       if (zFlipDetector.accum > 3 && Math.abs(az) > 6) {
         lastZSign = zSign;
         zFlipDetector.accum = 0;
-        onSensorFlip();
+        startFlip();
       }
     } else {
       zFlipDetector.accum = 0;
     }
   }
 }
-
 function applyGamma(gamma, beta) {
-  // gamma: device tilt left/right (-90..90), beta: front-back (-180..180)
-  // Desktop browsers often fire with null values — bail to keep gravity (0,1).
   if (gamma == null && beta == null) return;
   if (gamma === 0 && beta === 0) return;
-  const g = ((gamma || 0)) / 45;
-  // beta near 90 = phone held upright → screen-down gravity (0,1).
-  // beta near 0 = phone flat face-up → no preferred y direction.
-  // We only adjust y if beta is meaningful.
+  const g = (gamma || 0) / 45;
   const b = beta == null ? 90 : beta;
-  // Map: at beta=90, screen-y gravity factor = 1. At beta=0, factor = 0.
   const yFactor = Math.max(0, Math.min(1, b / 90));
   gravityRaw.x = Math.max(-1, Math.min(1, g));
   gravityRaw.y = yFactor;
-  // Normalize to unit
   const mn = Math.hypot(gravityRaw.x, gravityRaw.y);
   if (mn > 0.001) { gravityRaw.x /= mn; gravityRaw.y /= mn; }
   sensorActive = true;
 }
 
-function onSensorFlip() {
-  startFlip();
-}
-
-// --- Aigram postMessage bridge ---
-let aigramActive = false;
 function sendAigram(msg) {
   if (window.parent && window.parent !== window) {
     try { window.parent.postMessage(JSON.stringify(msg), '*'); } catch (e) {}
@@ -712,17 +1238,13 @@ window.addEventListener('message', (ev) => {
     const d = data.data || data.eventData || {};
     if (typeof d.x === 'number') {
       aigramActive = true;
-      sensorActive = true;
       applyAccel(d.x, d.y, d.z);
     }
   }
 });
 function tryAigramInit() {
-  // Request accelerometer @ 20ms
   sendAigram({ eventType: 'web_app_start_accelerometer', eventData: { refresh_rate: 20 } });
 }
-
-// --- Telegram.WebApp direct ---
 function tryTelegramWebAppInit() {
   try {
     const tg = window.Telegram && window.Telegram.WebApp;
@@ -731,303 +1253,31 @@ function tryTelegramWebAppInit() {
       tg.Accelerometer.start({ refresh_rate: 20 }, () => {});
       window.addEventListener('accelerometerChanged', () => {
         const a = tg.Accelerometer;
-        if (a && typeof a.x === 'number') {
-          sensorActive = true;
-          applyAccel(a.x, a.y, a.z);
-        }
+        if (a && typeof a.x === 'number') applyAccel(a.x, a.y, a.z);
       });
     }
   } catch (e) {}
 }
-
-// --- DOM fallback ---
 let domBound = false;
 function bindDomSensors() {
   if (domBound) return;
   domBound = true;
   window.addEventListener('deviceorientation', (e) => {
     if (aigramActive) return;
-    sensorActive = true;
     applyGamma(e.gamma, e.beta);
   }, { passive: true });
   window.addEventListener('devicemotion', (e) => {
     if (aigramActive) return;
     const ag = e.accelerationIncludingGravity;
     if (!ag) return;
-    sensorActive = true;
     applyAccel(ag.x || 0, ag.y || 0, ag.z || 0);
   }, { passive: true });
 }
 function requestIosPermsIfNeeded() {
-  // On iOS Safari standalone, DeviceMotionEvent.requestPermission must be
-  // called inside a user gesture. We attempt on first pointerdown.
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
     return DeviceMotionEvent.requestPermission().then((r) => r === 'granted').catch(() => false);
   }
   return Promise.resolve(true);
-}
-
-// ============================================================
-// RENDER
-// ============================================================
-function renderFrame(now, dt) {
-  ctx.clearRect(0, 0, W, H);
-
-  const theme = THEMES[currentTheme];
-
-  // Subtle vignette / glow under hourglass for grounding
-  drawBackgroundGlow(theme);
-
-  // Save context, translate to hourglass center
-  ctx.save();
-  ctx.translate(GEO.cx, GEO.cy);
-
-  // Apply flip rotation around X-axis (we use Y as the axis)
-  let flipAng = 0;
-  if (flipState.active) {
-    flipState.t += dt;
-    const u = Math.min(1, flipState.t / FLIP_DURATION_MS);
-    // easeInOutCubic
-    const eased = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
-    flipAng = eased * Math.PI;
-    if (u >= 1) { finishFlip(); flipAng = 0; }
-  }
-  if (flipAng !== 0) {
-    // Rotate around screen z by `flipAng` (this gives a 180° spin effect)
-    ctx.rotate(flipAng);
-  }
-
-  // 1) Glass body fill (faint inner tint)
-  drawGlassBody(theme);
-
-  // 2) Settled sand piles
-  drawPile(theme, topSettled);
-  drawPile(theme, bottomSettled);
-
-  // 3) Falling stream
-  drawStream(theme);
-
-  // 4) Glass highlights & rim
-  drawGlassHighlights(theme);
-
-  // 5) Wood caps (top + bottom)
-  drawWoodCap(theme, true);
-  drawWoodCap(theme, false);
-
-  // 6) Sparkles (above everything)
-  drawSparkles(theme);
-
-  ctx.restore();
-}
-
-function drawBackgroundGlow(theme) {
-  // Soft radial wash centered on hourglass
-  const g = ctx.createRadialGradient(GEO.cx, GEO.cy, 0, GEO.cx, GEO.cy, GEO.totalH * 0.6);
-  g.addColorStop(0, theme.grainGlow);
-  g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
-}
-
-function pathHourglassOutline(inset) {
-  // Outline of glass body (inside the wood caps), with optional inset.
-  // Local coords: y negative = up.
-  const top = GEO.upperChamberTopY - GEO.cy + inset;
-  const bot = GEO.lowerChamberBotY - GEO.cy - inset;
-  const necH = GEO.neckH / 2;
-  const halfCap = GEO.halfWAtCap - inset;
-  const halfNeck = GEO.neckW / 2 + inset * 0.4;
-
-  ctx.beginPath();
-  ctx.moveTo(-halfCap, top);
-  // Right side: cap top → neck right
-  ctx.lineTo(-halfNeck, -necH);
-  ctx.lineTo(-halfNeck, +necH);
-  ctx.lineTo(-halfCap, bot);
-  ctx.lineTo(+halfCap, bot);
-  ctx.lineTo(+halfNeck, +necH);
-  ctx.lineTo(+halfNeck, -necH);
-  ctx.lineTo(+halfCap, top);
-  ctx.closePath();
-}
-
-function drawGlassBody(theme) {
-  // Faint glass interior tint
-  pathHourglassOutline(0);
-  ctx.fillStyle = theme.glassTint;
-  ctx.fill();
-  // Inner subtle gradient (warm wash upper-left, cool shadow lower-right)
-  const g = ctx.createLinearGradient(-GEO.halfWAtCap, -GEO.totalH/2, GEO.halfWAtCap, GEO.totalH/2);
-  g.addColorStop(0, 'rgba(255,255,255,0.025)');
-  g.addColorStop(0.5, 'rgba(255,255,255,0)');
-  g.addColorStop(1, 'rgba(0,0,0,0.10)');
-  pathHourglassOutline(0);
-  ctx.fillStyle = g;
-  ctx.fill();
-}
-
-function drawPile(theme, grains) {
-  if (grains.length === 0) return;
-  if (theme.additive) {
-    ctx.globalCompositeOperation = 'lighter';
-  }
-  // Render grains as small circles with a per-grain shade variation
-  // Pre-compute a couple of colors
-  const colors = [theme.sand, theme.sandLight, theme.sandDark];
-  for (let i = 0; i < grains.length; i++) {
-    const g = grains[i];
-    const c = colors[i % colors.length];
-    ctx.fillStyle = c;
-    ctx.beginPath();
-    ctx.arc(g.x, g.y, GRAIN_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // Soft glow pass on top
-  if (theme.additive) {
-    ctx.fillStyle = theme.grainGlow;
-    for (let i = 0; i < grains.length; i += 4) {
-      const g = grains[i];
-      ctx.beginPath();
-      ctx.arc(g.x, g.y, GRAIN_RADIUS * 2.4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.globalCompositeOperation = 'source-over';
-}
-
-function drawStream(theme) {
-  if (inFlight.length === 0) return;
-  if (theme.additive) ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = theme.sandLight;
-  for (let i = 0; i < inFlight.length; i++) {
-    const p = inFlight[i];
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, GRAIN_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (theme.additive) {
-    ctx.fillStyle = theme.grainGlow;
-    for (let i = 0; i < inFlight.length; i++) {
-      const p = inFlight[i];
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, GRAIN_RADIUS * 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.globalCompositeOperation = 'source-over';
-}
-
-function drawGlassHighlights(theme) {
-  // Soft light streak inside each chamber (clipped to hourglass outline).
-  ctx.save();
-  pathHourglassOutline(0);
-  ctx.clip();
-  // Upper streak: thin vertical highlight on the left wall
-  const ucMidY = (GEO.upperChamberTopY + GEO.upperChamberBotY) / 2 - GEO.cy;
-  const lcMidY = (GEO.lowerChamberTopY + GEO.lowerChamberBotY) / 2 - GEO.cy;
-  drawChamberCatch(theme, -GEO.halfWAtCap * 0.32, ucMidY - 8, GEO.chamberH * 0.55, true);
-  drawChamberCatch(theme, -GEO.halfWAtCap * 0.32, lcMidY + 8, GEO.chamberH * 0.55, false);
-  // Tiny back-catch (smaller, right side)
-  drawChamberCatch(theme,  GEO.halfWAtCap * 0.22, ucMidY + 4, GEO.chamberH * 0.30, true);
-  drawChamberCatch(theme,  GEO.halfWAtCap * 0.22, lcMidY - 4, GEO.chamberH * 0.30, false);
-  ctx.restore();
-
-  // Rim halo + tight rim (outside clip)
-  pathHourglassOutline(0);
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = theme.glassHi.replace(/[\d.]+\)$/, '0.10)');
-  ctx.stroke();
-  pathHourglassOutline(0);
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = theme.glassHi.replace(/[\d.]+\)$/, '0.55)');
-  ctx.stroke();
-}
-
-function drawChamberCatch(theme, cx, cy, height, isUpper) {
-  // A long thin elliptical glow that reads as a glass catch.
-  const rx = 4.5;
-  const ry = height / 2;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(isUpper ? -0.05 : 0.05);
-  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
-  grad.addColorStop(0,  theme.glassHi);
-  grad.addColorStop(0.4, theme.glassHi.replace(/[\d.]+\)$/, '0.22)'));
-  grad.addColorStop(1,  'rgba(255,255,255,0)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawWoodCap(theme, isTop) {
-  const cy = isTop ? (GEO.topY - GEO.cy + GEO.capH / 2) : (GEO.botY - GEO.cy - GEO.capH / 2);
-  const halfH = GEO.capH / 2;
-  const halfW = GEO.halfWAtCap + 14; // wider than glass for the shoulders
-  // Cap body
-  ctx.save();
-  ctx.translate(0, cy);
-  const grad = ctx.createLinearGradient(0, -halfH, 0, halfH);
-  grad.addColorStop(0, theme.woodLight);
-  grad.addColorStop(0.5, theme.wood);
-  grad.addColorStop(1, theme.woodDark);
-  ctx.fillStyle = grad;
-  // Rounded rect
-  const r = 4;
-  ctx.beginPath();
-  ctx.moveTo(-halfW + r, -halfH);
-  ctx.lineTo(halfW - r, -halfH);
-  ctx.quadraticCurveTo(halfW, -halfH, halfW, -halfH + r);
-  ctx.lineTo(halfW, halfH - r);
-  ctx.quadraticCurveTo(halfW, halfH, halfW - r, halfH);
-  ctx.lineTo(-halfW + r, halfH);
-  ctx.quadraticCurveTo(-halfW, halfH, -halfW, halfH - r);
-  ctx.lineTo(-halfW, -halfH + r);
-  ctx.quadraticCurveTo(-halfW, -halfH, -halfW + r, -halfH);
-  ctx.closePath();
-  ctx.fill();
-  // Top/bottom rim shadow (the side that contacts glass)
-  ctx.strokeStyle = theme.woodDark;
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  // A subtle horizontal seam
-  ctx.beginPath();
-  ctx.moveTo(-halfW + 6, isTop ? halfH - 1 : -halfH + 1);
-  ctx.lineTo(halfW - 6, isTop ? halfH - 1 : -halfH + 1);
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-  ctx.lineWidth = 0.5;
-  ctx.stroke();
-  ctx.restore();
-
-  // Two small vertical struts on the sides that "hold" the glass (decorative)
-  ctx.save();
-  ctx.translate(0, cy + (isTop ? halfH + 4 : -halfH - 4));
-  const strutH = 8;
-  for (const sx of [-1, 1]) {
-    ctx.fillStyle = theme.wood;
-    ctx.fillRect(sx * (halfW - 8) - 1.5, isTop ? 0 : -strutH, 3, strutH);
-  }
-  ctx.restore();
-}
-
-function drawSparkles(theme) {
-  if (sparkles.length === 0) return;
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < sparkles.length; i++) {
-    const s = sparkles[i];
-    const u = s.life / s.max;
-    const a = (1 - u) * 0.7;
-    ctx.fillStyle = theme.sandLight;
-    ctx.globalAlpha = a;
-    const r = GRAIN_RADIUS * (1.2 + u * 1.4);
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
 }
 
 // ============================================================
@@ -1038,39 +1288,21 @@ function setTheme(name) {
   if (!THEMES[name]) return;
   currentTheme = name;
   document.body.setAttribute('data-theme', name);
-  // Switcher visual
   document.querySelectorAll('.switcher-btn').forEach((b) => {
     b.classList.toggle('is-active', b.dataset.theme === name);
   });
-  // Update info strip pool
   refreshClimateAndTemp();
   cycleNextPoem(true);
 }
 
-// Hit-test the wood caps in screen space
-function hitTestCap(sx, sy) {
-  const lx = sx - GEO.cx;
-  const ly = sy - GEO.cy;
-  // Account for flip rotation
-  let lx2 = lx, ly2 = ly;
-  if (flipState.active) {
-    // Doesn't matter; during flip we ignore taps anyway
-  }
-  const inX = Math.abs(lx2) < GEO.halfWAtCap + 16;
-  const topY = GEO.topY - GEO.cy;
-  const botY = GEO.botY - GEO.cy;
-  const onTopCap = ly2 < topY + GEO.capH + 6 && ly2 > topY - 6;
-  const onBotCap = ly2 > botY - GEO.capH - 6 && ly2 < botY + 6;
-  return inX && (onTopCap || onBotCap);
+function pointInStage(sx, sy) {
+  return sx >= stageX && sx <= stageX + stageSize && sy >= stageY && sy <= stageY + stageSize;
 }
-
-function hitTestGlass(sx, sy) {
-  const lx = sx - GEO.cx;
-  const ly = sy - GEO.cy;
-  if (Math.abs(ly) > GEO.totalH / 2 - GEO.capH) return false;
-  // Inside hourglass V shape — approximate via half-width function
-  const halfW = ly < 0 ? upperWidthAt(ly) : lowerWidthAt(ly);
-  return Math.abs(lx) < halfW;
+function pointInCap(sx, sy) {
+  // Caps occupy roughly the top 10% and bottom 10% of the stage
+  if (!pointInStage(sx, sy)) return false;
+  const ly = sy - stageY;
+  return ly < stageSize * 0.13 || ly > stageSize * 0.87;
 }
 
 let hintGone = false;
@@ -1086,30 +1318,22 @@ function showHint() {
   document.getElementById('hint').classList.add('is-visible');
 }
 
-function onPointerDown(ev) {
+stage.addEventListener('pointerdown', (ev) => {
   ev.preventDefault();
   const sx = ev.clientX;
   const sy = ev.clientY;
-
-  // Try iOS perms (no-op if already granted or not iOS)
   if (!aigramActive && !sensorActive) {
     requestIosPermsIfNeeded().then((ok) => { if (ok) bindDomSensors(); });
   }
-
-  if (hitTestCap(sx, sy)) {
+  if (pointInCap(sx, sy)) {
     startFlip();
     return;
   }
-  if (hitTestGlass(sx, sy)) {
-    // Spawn sparkle in local coords
-    spawnSparkle(sx - GEO.cx, sy - GEO.cy);
-    hideHint();
-  }
-}
-canvas.addEventListener('pointerdown', onPointerDown);
+  // Tap on the body → sparkle at local coords (canvas coord = sx-stageX, sy-stageY)
+  spawnSparkle(sx - stageX, sy - stageY);
+  hideHint();
+});
 window.addEventListener('contextmenu', (e) => e.preventDefault());
-
-// Theme switcher
 document.getElementById('switcher').addEventListener('pointerdown', (ev) => {
   const btn = ev.target.closest('.switcher-btn');
   if (!btn) return;
@@ -1118,128 +1342,63 @@ document.getElementById('switcher').addEventListener('pointerdown', (ev) => {
 });
 
 // ============================================================
-// AUTO-FLIP (bounded preload-safe attract)
+// INFO STRIP
 // ============================================================
-function tickAutoFlip(dt) {
-  if (flipState.active) return;
-  if (topSettled.length === 0 && inFlight.length === 0) {
-    emptyTimer += dt;
-    if (emptyTimer > POST_EMPTY_PAUSE_MS) {
-      startFlip();
-    }
-  } else {
-    emptyTimer = 0;
-  }
-}
-
-// ============================================================
-// INFO STRIP (time / climate / temperature / poem)
-// ============================================================
-const elStatusTime = document.getElementById('status-time');
-const elStatusClim = document.getElementById('status-clim');
-const elStatusTemp = document.getElementById('status-temp');
+const elTime = document.getElementById('status-time');
+const elClim = document.getElementById('status-clim');
+const elTemp = document.getElementById('status-temp');
 const elPoem = document.getElementById('poem');
 
 function fmtTime() {
   const d = new Date();
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return hh + ':' + mm;
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
-let climateLocked = '';
-let tempLocked = '';
 function refreshClimateAndTemp() {
   const t = THEMES[currentTheme];
-  climateLocked = t.climate[Math.floor(Math.random() * t.climate.length)];
-  tempLocked = t.temps[Math.floor(Math.random() * t.temps.length)];
-  elStatusClim.textContent = climateLocked;
-  elStatusTemp.textContent = tempLocked;
+  elClim.textContent = t.climate[Math.floor(Math.random() * t.climate.length)];
+  elTemp.textContent = t.temps[Math.floor(Math.random() * t.temps.length)];
 }
-function tickStatus() {
-  elStatusTime.textContent = fmtTime();
-}
-
+function tickStatus() { elTime.textContent = fmtTime(); }
 let poemIndex = 0;
-let poemFadeUntil = 0;
-function cycleNextPoem(forceImmediate) {
+function cycleNextPoem(immediate) {
   const t = THEMES[currentTheme];
   poemIndex = (poemIndex + 1) % t.poems.length;
-  if (forceImmediate) {
-    elPoem.classList.remove('is-visible');
-    setTimeout(() => {
-      elPoem.textContent = t.poems[poemIndex];
-      elPoem.classList.add('is-visible');
-    }, 200);
-  } else {
-    elPoem.classList.remove('is-visible');
-    setTimeout(() => {
-      elPoem.textContent = t.poems[poemIndex];
-      elPoem.classList.add('is-visible');
-    }, 1500);
-  }
+  const delay = immediate ? 200 : 1500;
+  elPoem.classList.remove('is-visible');
+  setTimeout(() => {
+    elPoem.textContent = t.poems[poemIndex];
+    elPoem.classList.add('is-visible');
+  }, delay);
 }
 
 // ============================================================
-// MAIN LOOP
+// MAIN LOOP / INIT
 // ============================================================
 let lastFrameTime = 0;
-const FRAME_MS = 1000 / 60;
-
-function frame(now) {
-  if (!lastFrameTime) lastFrameTime = now;
-  const dt = Math.min(40, now - lastFrameTime); // clamp dt for tab switch
-  lastFrameTime = now;
-
-  // Smooth gravity
-  gravityRef.x += (gravityRaw.x - gravityRef.x) * 0.18;
-  gravityRef.y += (gravityRaw.y - gravityRef.y) * 0.18;
-
-  startDrain(dt);
-  stepInFlight(dt);
-  stepSparkles(dt);
-  tickAutoFlip(dt);
-
-  renderFrame(now, dt);
-  requestAnimationFrame(frame);
-}
-
-// ============================================================
-// INIT
-// ============================================================
 function isPosterMode() {
   return new URLSearchParams(location.search).get('poster') === '1';
 }
-
 function init() {
-  if (isPosterMode()) {
-    document.body.classList.add('is-poster');
-  }
+  if (isPosterMode()) document.body.classList.add('is-poster');
   resize();
   window.addEventListener('resize', resize);
   setTheme('sahara');
 
-  // Status loop
   tickStatus();
   setInterval(tickStatus, 30000);
-  // Poem cycle
   setTimeout(() => cycleNextPoem(true), 1200);
   setInterval(() => cycleNextPoem(false), 22000);
-  // Hint
   setTimeout(() => showHint(), 1800);
   setTimeout(() => hideHint(), 16000);
 
-  // Sensor init
   tryAigramInit();
   tryTelegramWebAppInit();
-  // Bind DOM motion lazily on first gesture for iOS, but also
-  // bind unconditionally on non-iOS so non-iOS gets immediate values.
   if (typeof DeviceMotionEvent === 'undefined' || typeof DeviceMotionEvent.requestPermission !== 'function') {
     bindDomSensors();
   }
 
   requestAnimationFrame(frame);
 }
-
 init();
 </script>
 </body>
