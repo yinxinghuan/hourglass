@@ -716,8 +716,10 @@ function spawnStreamGrain() {
     vy: 70 + Math.random() * 40,
     hueIdx: Math.floor(Math.random() * 5),
     size: GRAIN_R * (0.85 + Math.random() * 0.3),
+    landIn: 'bot',
   });
 }
+
 
 function spawnDust(x, y, theme) {
   for (let i = 0; i < 3; i++) {
@@ -834,8 +836,9 @@ function stepInFlight(dt, theme) {
   const gxv = gravityRef.x * 1200;
   const gyv = gravityRef.y * 1200;
   const neckHWPx = FRAC.neckHalfW * stageSize - 0.5;
+  const neckTopPx = FRAC.neckTop * stageSize;
   const neckBotPx = FRAC.neckBot * stageSize;
-  const lcBotPx = FRAC.lowerBot * stageSize;
+  const ucBotPx = FRAC.upperBot * stageSize;
 
   for (let i = inFlight.length - 1; i >= 0; i--) {
     const p = inFlight[i];
@@ -846,15 +849,42 @@ function stepInFlight(dt, theme) {
     p.y += p.vy * dts;
 
     // Neck constraint while inside neck region
-    if (p.y > FRAC.neckTop * stageSize - 1 && p.y < neckBotPx + 1) {
+    if (p.y > neckTopPx - 1 && p.y < neckBotPx + 1) {
       const dxC = p.x - cxPx;
       if (dxC > neckHWPx)  { p.x = cxPx + neckHWPx;  p.vx = -Math.abs(p.vx) * 0.35; }
       if (dxC < -neckHWPx) { p.x = cxPx - neckHWPx;  p.vx =  Math.abs(p.vx) * 0.35; }
     }
 
-    // Past neck — check landing on bottom pile
-    if (p.y > neckBotPx) {
-      // Clamp inside chamber walls
+    const landIn = p.landIn || 'bot';
+
+    // ---- TOP-CHAMBER RAIN: grain falls inside upper chamber, settles on top pile
+    if (landIn === 'top' && p.y < ucBotPx + 4) {
+      // Clamp within upper-chamber walls
+      const hwHere = chamberHalfW(p.y, true);
+      if (hwHere > 0) {
+        const dxC = p.x - cxPx;
+        if (Math.abs(dxC) > hwHere - GRAIN_R) {
+          p.x = cxPx + Math.sign(dxC) * (hwHere - GRAIN_R);
+          p.vx *= -0.3;
+        }
+      }
+      const xLocal = p.x - cxPx;
+      let colIdx = Math.round(xLocal / COL_W + (NUM_COLS - 1) / 2);
+      colIdx = Math.max(0, Math.min(NUM_COLS - 1, colIdx));
+      const stackTopY = topFloor[colIdx] - topCols[colIdx] * GRAIN_H - GRAIN_H * 0.5;
+      if (p.y >= stackTopY) {
+        const placedCol = placeInChamber(topCols, topMax, colIdx);
+        if (placedCol >= 0) {
+          spawnDust(p.x, stackTopY, theme);
+          playImpactPing();
+        }
+        inFlight.splice(i, 1);
+        continue;
+      }
+    }
+
+    // ---- BOT-LANDING: drain stream after neck, or post-flip rain in new bottom
+    else if (p.y > neckBotPx) {
       const hwHere = chamberHalfW(p.y, false);
       if (hwHere > 0) {
         const dxC = p.x - cxPx;
@@ -864,26 +894,11 @@ function stepInFlight(dt, theme) {
         }
       }
       const xLocal = p.x - cxPx;
-      const colF = xLocal / COL_W + (NUM_COLS - 1) / 2;
-      let colIdx = Math.round(colF);
+      let colIdx = Math.round(xLocal / COL_W + (NUM_COLS - 1) / 2);
       colIdx = Math.max(0, Math.min(NUM_COLS - 1, colIdx));
       const stackTopY = botFloor[colIdx] - botCols[colIdx] * GRAIN_H - GRAIN_H * 0.5;
-
       if (p.y >= stackTopY) {
-        let placedCol = -1;
-        if (botCols[colIdx] < botMax[colIdx]) {
-          botCols[colIdx]++;
-          placedCol = colIdx;
-        } else {
-          // Try adjacent shorter cols
-          for (const a of [colIdx - 1, colIdx + 1]) {
-            if (a >= 0 && a < NUM_COLS && botCols[a] < botMax[a]) {
-              botCols[a]++;
-              placedCol = a;
-              break;
-            }
-          }
-        }
+        const placedCol = placeInChamber(botCols, botMax, colIdx);
         if (placedCol >= 0) {
           spawnDust(p.x, stackTopY, theme);
           playImpactPing();
@@ -894,10 +909,24 @@ function stepInFlight(dt, theme) {
     }
 
     // OOB
-    if (p.y > stageSize * 1.1 || Math.abs(p.x - cxPx) > stageSize) {
+    if (p.y > stageSize * 1.1 || p.y < -stageSize * 0.1 || Math.abs(p.x - cxPx) > stageSize) {
       inFlight.splice(i, 1);
     }
   }
+}
+
+function placeInChamber(cols, maxes, colIdx) {
+  if (cols[colIdx] < maxes[colIdx]) {
+    cols[colIdx]++;
+    return colIdx;
+  }
+  for (const a of [colIdx - 1, colIdx + 1]) {
+    if (a >= 0 && a < NUM_COLS && cols[a] < maxes[a]) {
+      cols[a]++;
+      return a;
+    }
+  }
+  return -1;
 }
 
 function stepDust(dt) {
@@ -989,20 +1018,27 @@ function startFlip() {
   triggerFlip();
 }
 function finishFlip() {
-  // Swap chamber state — what was the bottom is now the top.
-  const t = topCols, tm = topMax;
-  topCols = botCols; topMax = botMax;
-  botCols = t;       botMax = tm;
-  // CONSERVE total sand: re-settle BOTH chambers into clean piles of their
-  // existing grain counts. (Earlier bug: only re-settled the top and cleared
-  // the bottom, which lost grains on every manual flip → cycles got shorter
-  // and shorter, always returning the same elapsed-second bucket.)
-  let topCarry = 0, botCarry = 0;
+  // Swap chamber counts — what was the bottom is now the top. Crucially we
+  // do NOT swap topMax / botMax / topFloor / botFloor: those are chamber-
+  // geometry-specific (where the pile rests, max stack per column inside the
+  // bulb). Since both chambers have mirror-symmetric profiles, the swapped
+  // column counts are valid heights inside the new chamber.
+  const t = topCols;
+  topCols = botCols;
+  botCols = t;
+
+  // Cap any column that exceeds its new chamber's max (shouldn't happen with
+  // symmetric profile, but safe).
+  for (let i = 0; i < NUM_COLS; i++) {
+    if (topCols[i] > topMax[i]) topCols[i] = topMax[i];
+    if (botCols[i] > botMax[i]) botCols[i] = botMax[i];
+  }
+
+  // No refill, no rain — let the existing avalanche reshape the post-swap
+  // "funnel in new bot / cone in new top" into stable piles over ~1s. The
+  // user sees a natural settle, not an instant snap.
+  let topCarry = 0;
   for (let i = 0; i < NUM_COLS; i++) topCarry += topCols[i];
-  for (let i = 0; i < NUM_COLS; i++) botCarry += botCols[i];
-  for (let i = 0; i < NUM_COLS; i++) { topCols[i] = 0; botCols[i] = 0; }
-  refillFromCenter(topCols, topMax, topCarry);
-  refillFromCenter(botCols, botMax, botCarry);
 
   inFlight.length = 0;
   drainAccum = 0;
@@ -1011,10 +1047,8 @@ function finishFlip() {
   flipState = { active: false, t: 0 };
   // Canvas internal rotation toggles HERE — paired with the sim state swap
   // above. The CSS rotation finished its animation; from this frame on, the
-  // canvas content is drawn 180°-pre-rotated so that CSS × canvas = identity
-  // (i.e. sim's "top" appears at screen top, drain visually goes top→bottom).
+  // canvas content is drawn 180°-pre-rotated so that CSS × canvas = identity.
   canvasRotated = !canvasRotated;
-  // Fresh random target duration for the upcoming drain
   pickCycleDuration();
   DRAIN_INTERVAL_MS = Math.max(20, (cycleTargetSec * 1000) / Math.max(1, topCarry || totalGrains));
   drainStartTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
