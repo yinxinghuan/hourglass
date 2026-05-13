@@ -50,6 +50,7 @@
     position: absolute;
     z-index: 1;
     pointer-events: auto;
+    transition: opacity 0.9s ease, transform 0.9s ease;
   }
   .sand-canvas {
     position: absolute;
@@ -60,8 +61,8 @@
     transition: transform 0.85s cubic-bezier(0.5,-0.1,0.5,1.1);
     will-change: transform;
   }
-  .stage.is-flipping .sand-canvas { transform: rotate(180deg); }
-  .stage.is-flipped  .sand-canvas { transform: rotate(0deg); }
+  .stage .sand-canvas       { transform: rotate(0deg); }
+  .stage.is-flipped .sand-canvas { transform: rotate(180deg); }
 
   /* Theme switcher pill */
   .switcher {
@@ -159,10 +160,47 @@
   .hint.is-gone { opacity: 0; animation: none; }
   @keyframes hintBreathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
+  /* Fact card — persistent caption at bottom; updated on each flip */
+  .fact-card {
+    position: absolute;
+    bottom: calc(max(20px, env(safe-area-inset-bottom)) + 38px);
+    left: 8%;
+    right: 8%;
+    text-align: center;
+    pointer-events: none;
+    z-index: 6;
+    opacity: 0;
+    transition: opacity 0.55s ease;
+  }
+  .fact-card.is-visible { opacity: 1; }
+  .fact-card .fc-duration {
+    font-family: ui-monospace, "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    color: rgba(232, 220, 188, 0.45);
+    margin-bottom: 8px;
+  }
+  .fact-card .fc-body {
+    font-family: "Cormorant Garamond", "Times New Roman", serif;
+    font-style: italic;
+    font-size: 16px;
+    line-height: 1.36;
+    letter-spacing: 0.01em;
+    color: rgba(248, 232, 200, 0.86);
+    max-width: 540px;
+    margin: 0 auto;
+  }
+  /* Sub-line hidden in the new sticky layout */
+  .fact-card .fc-sub { display: none; }
+  /* When the fact card is on, hide the wandering poem so the two don't share the slot */
+  body.has-fact .poem { opacity: 0 !important; }
+
   /* Poster mode */
   body.is-poster .switcher,
   body.is-poster .hint,
   body.is-poster .poem,
+  body.is-poster .fact-card,
   body.is-poster .status { display: none !important; }
   .poster-title {
     display: none;
@@ -222,7 +260,13 @@
   <div class="poem" id="poem"></div>
   <div class="hint" id="hint">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3-3 3 3"/><path d="M12 8v8"/><circle cx="12" cy="12" r="10"/></svg>
-    Tap to flip
+    <span id="hint-text">Tap to flip</span>
+  </div>
+
+  <div class="fact-card" id="fact-card">
+    <div class="fc-duration" id="fc-duration"></div>
+    <div class="fc-body" id="fc-body"></div>
+    <div class="fc-sub" id="fc-sub"></div>
   </div>
   <div class="status" id="status">
     <span class="status-time" id="status-time">00:00</span>
@@ -234,6 +278,21 @@
 
 <script>
 'use strict';
+
+// ============================================================
+// I18N (zh / en, auto-detected, override via localStorage.game_locale)
+// ============================================================
+const LOCALE = (function() {
+  const o = (typeof localStorage !== 'undefined') ? localStorage.getItem('game_locale') : null;
+  if (o === 'zh' || o === 'en') return o;
+  const nav = (typeof navigator !== 'undefined' && navigator.language) || '';
+  return nav.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+})();
+function t(obj) {
+  if (obj == null) return '';
+  if (typeof obj === 'string') return obj;
+  return obj[LOCALE] || obj.en || obj.zh || '';
+}
 
 // ============================================================
 // THEMES — vessel image is shared (warm wood/brass for all);
@@ -251,21 +310,27 @@ const THEMES = {
     additive:    true,
     impactDust:  '#f0c089',
     poems: [
-      'Slow as horizons.',
-      'Each grain a year.',
-      'The dunes are listening.',
-      'Time, distilled.',
-      'Light, kept warm.',
-      'All afternoon turns gold.',
-      'A small desert in glass.',
-      'Patience is a color.',
-      'The sun, exhaled.',
-      'Nothing falls in vain.',
-      'Where caravans rest.',
-      'What memory looks like.'
+      { en: 'Slow as horizons.',          zh: '缓慢如地平线。' },
+      { en: 'Each grain, a year.',        zh: '每一粒，皆是一年。' },
+      { en: 'The dunes are listening.',   zh: '沙丘在听。' },
+      { en: 'Time, distilled.',           zh: '时间，被蒸馏。' },
+      { en: 'Light, kept warm.',          zh: '光，仍是温的。' },
+      { en: 'All afternoon turns gold.',  zh: '整个下午都化作金色。' },
+      { en: 'A small desert in glass.',   zh: '玻璃里的小沙漠。' },
+      { en: 'Patience is a color.',       zh: '耐心是一种颜色。' },
+      { en: 'The sun, exhaled.',          zh: '太阳，正在缓缓呼出。' },
+      { en: 'Nothing falls in vain.',     zh: '没有什么是徒然落下。' },
+      { en: 'Where caravans rest.',       zh: '驼队在此停歇。' },
+      { en: 'What memory looks like.',    zh: '记忆的模样。' }
     ],
-    climate: ['arid', 'dry', 'still', 'warm', 'hush'],
-    temps:   ['28°C', '34°C', '41°C', '38°C', '31°C', '44°C', '36°C']
+    climate: [
+      { en: 'arid',  zh: '干旱' },
+      { en: 'dry',   zh: '干燥' },
+      { en: 'still', zh: '寂静' },
+      { en: 'warm',  zh: '温热' },
+      { en: 'hush',  zh: '无声' }
+    ],
+    temps: ['28°C', '34°C', '41°C', '38°C', '31°C', '44°C', '36°C']
   },
   geode: {
     label: 'Geode',
@@ -278,21 +343,27 @@ const THEMES = {
     additive:    true,
     impactDust:  '#b394e8',
     poems: [
-      'Pressure becomes prism.',
-      'The dark refines.',
-      'Crystals, patient.',
-      'Slow eons in violet.',
-      'Held in the deep.',
-      'Some light is hidden.',
-      'The earth’s slow heart.',
-      'Stones learn to glow.',
-      'What waits underground.',
-      'A geode of minutes.',
-      'Color, geological.',
-      'The cave keeps its time.'
+      { en: 'Pressure becomes prism.',     zh: '压力终成棱镜。' },
+      { en: 'The dark refines.',           zh: '黑暗使一切精炼。' },
+      { en: 'Crystals, patient.',          zh: '晶体，最有耐心。' },
+      { en: 'Slow eons in violet.',        zh: '紫色里的漫长纪元。' },
+      { en: 'Held in the deep.',           zh: '被深处所托住。' },
+      { en: 'Some light is hidden.',       zh: '有些光是藏起来的。' },
+      { en: 'The earth’s slow heart.', zh: '大地缓慢的心跳。' },
+      { en: 'Stones learn to glow.',       zh: '石头学会了发光。' },
+      { en: 'What waits underground.',     zh: '在地下等候的东西。' },
+      { en: 'A geode of minutes.',         zh: '一颗由分秒组成的晶洞。' },
+      { en: 'Color, geological.',          zh: '颜色，是地质的。' },
+      { en: 'The cave keeps its time.',    zh: '洞穴自有它的时间。' }
     ],
-    climate: ['deep', 'cool', 'silent', 'still', 'inner'],
-    temps:   ['11°C', '8°C', '14°C', '12°C', '9°C', '10°C', '13°C']
+    climate: [
+      { en: 'deep',   zh: '深处' },
+      { en: 'cool',   zh: '清凉' },
+      { en: 'silent', zh: '静默' },
+      { en: 'still',  zh: '不动' },
+      { en: 'inner',  zh: '内里' }
+    ],
+    temps: ['11°C', '8°C', '14°C', '12°C', '9°C', '10°C', '13°C']
   },
   glowsand: {
     label: 'Glowsand',
@@ -305,22 +376,151 @@ const THEMES = {
     additive:    true,
     impactDust:  '#a0f8f8',
     poems: [
-      'Plankton remember light.',
-      'The deep counts softly.',
-      'Tides in a bottle.',
-      'Smaller than starlight.',
-      'Silver in the trench.',
-      'Mid-ocean glow.',
-      'Currents of small fire.',
-      'The night has its glitter.',
-      'Below the surface, a hymn.',
-      'Pulse of the abyss.',
-      'Bioluminescent slow.',
-      'A whole sea, distilled.'
+      { en: 'Plankton remember light.',  zh: '浮游生物还记得光。' },
+      { en: 'The deep counts softly.',   zh: '深处在轻轻地计数。' },
+      { en: 'Tides in a bottle.',        zh: '瓶中的潮汐。' },
+      { en: 'Smaller than starlight.',   zh: '比星光更微小。' },
+      { en: 'Silver in the trench.',     zh: '海沟里的银。' },
+      { en: 'Mid-ocean glow.',           zh: '远洋的微光。' },
+      { en: 'Currents of small fire.',   zh: '点点小火的洋流。' },
+      { en: 'The night has its glitter.',zh: '夜也有它的闪光。' },
+      { en: 'Below the surface, a hymn.',zh: '海面之下，一阕颂歌。' },
+      { en: 'Pulse of the abyss.',       zh: '深渊的脉动。' },
+      { en: 'Bioluminescent slow.',      zh: '生物荧光，缓慢生长。' },
+      { en: 'A whole sea, distilled.',   zh: '把一整片海蒸馏成滴。' }
     ],
-    climate: ['abyssal', 'cold', 'lit', 'still', 'fathom'],
-    temps:   ['320 m', '480 m', '600 m', '750 m', '410 m', '550 m', '690 m']
+    climate: [
+      { en: 'abyssal', zh: '深渊' },
+      { en: 'cold',    zh: '冷' },
+      { en: 'lit',     zh: '微光' },
+      { en: 'still',   zh: '不动' },
+      { en: 'fathom',  zh: '深度' }
+    ],
+    temps: ['320 m', '480 m', '600 m', '750 m', '410 m', '550 m', '690 m']
   }
+};
+
+// ============================================================
+// FACTS — bilingual cold knowledge bucketed by elapsed seconds.
+// When the hourglass flips (auto or by tap), we pick the bucket
+// closest to the elapsed drain time and show one random fact.
+// ============================================================
+const FACT_BUCKETS = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600, 1800];
+
+const FACTS = {
+  5: [
+    { en: 'Lightning struck Earth ~220 times.',                       zh: '地球被闪电击中了约 220 次。' },
+    { en: 'You took roughly one full breath.',                        zh: '你大约完成了一次完整呼吸。' },
+    { en: 'The Sun radiated as much energy as a small country uses in a year.', zh: '太阳辐射出的能量，约等于一个小国一年的耗能。' },
+    { en: 'Earth moved ~150 km along its orbit around the Sun.',      zh: '地球沿绕日轨道前进了约 150 公里。' },
+  ],
+  10: [
+    { en: 'Your heart beat about 12 times.',                          zh: '你的心跳约 12 次。' },
+    { en: 'Earth was struck by ~440 lightning bolts.',                zh: '地球上落下了约 440 道闪电。' },
+    { en: 'A sprinter just covered ~100 metres.',                     zh: '一名短跑运动员跑完了 100 米。' },
+    { en: 'The ISS traveled ~78 km across the sky.',                  zh: '国际空间站在天空中划过了 78 公里。' },
+    { en: 'About 40 babies were born somewhere in the world.',        zh: '世界上约有 40 个婴儿出生。' },
+  ],
+  15: [
+    { en: 'A blue whale’s heart beat about 3 times.',                 zh: '一头蓝鲸的心脏跳了约 3 下。' },
+    { en: 'Sound traveled ~5.1 km — across a small valley.',          zh: '声音传播了 5.1 公里——能穿过一座小山谷。' },
+    { en: 'Niagara Falls dumped ~42 million litres of water.',        zh: '尼亚加拉大瀑布倾泻了约 4200 万升水。' },
+  ],
+  20: [
+    { en: 'A hummingbird flapped its wings ~1,300 times.',            zh: '蜂鸟扇动了约 1,300 次翅膀。' },
+    { en: 'Sound covered 6.8 km — about across a small city.',        zh: '声音跨过了 6.8 公里——能穿过一座小城。' },
+    { en: 'The Sun fused ~13 billion kg of hydrogen into helium.',    zh: '太阳把约 130 亿千克的氢融合成了氦。' },
+    { en: 'You took about 5 breaths and your eyes blinked ~6 times.', zh: '你呼吸了约 5 次，眨眼约 6 次。' },
+    { en: 'Mount Everest rose ~0.000003 mm — geology is patient.',    zh: '珠穆朗玛峰升高了约 0.000003 毫米——地质有耐心。' },
+  ],
+  30: [
+    { en: 'A bee may have visited ~25 flowers.',                      zh: '一只蜜蜂可能拜访了约 25 朵花。' },
+    { en: 'Niagara Falls dumped ~84 million litres of water.',        zh: '尼亚加拉大瀑布倾泻了约 8400 万升水。' },
+    { en: 'The Sun shed enough hydrogen to outweigh 30 Empire State Buildings.', zh: '太阳损失的氢质量超过 30 座帝国大厦。' },
+    { en: 'Earth turned ~12.5 km along its equator.',                 zh: '地球赤道转过了约 12.5 公里。' },
+    { en: 'A garden snail crawled ~30 cm.',                           zh: '一只蜗牛爬过了约 30 厘米。' },
+  ],
+  45: [
+    { en: 'An Olympic swimmer covered ~75 m of butterfly.',           zh: '一名奥运选手游了约 75 米蝶泳。' },
+    { en: 'A jumbo jet flew ~12 km at cruising altitude.',            zh: '一架巨型客机在巡航高度飞行了 12 公里。' },
+    { en: 'You shed about 1.3 million skin cells.',                   zh: '你脱落了约 130 万颗皮肤细胞。' },
+    { en: 'Lightning struck ~2,000 times around the world.',          zh: '全球落雷约 2,000 次。' },
+  ],
+  60: [
+    { en: 'Earth received ~6,000 lightning strikes.',                 zh: '地球上落下了约 6,000 道闪电。' },
+    { en: 'Your blood completed a full lap of your body.',            zh: '你的血液在身体里完成了一次完整循环。' },
+    { en: 'About 250 babies were born; ~106 people passed.',          zh: '约有 250 个婴儿出生；约 106 人离世。' },
+    { en: 'The Moon drifted ~7 cm farther from the Earth (annual scale, scaled).', zh: '按年比例换算，月亮远离地球约 0.0007 厘米（一分钟份）。' },
+    { en: 'A blue whale’s heart beat just 8–10 times.',               zh: '一头蓝鲸的心脏只跳了 8–10 下。' },
+  ],
+  90: [
+    { en: 'Bamboo, in season, grew up to 5 cm.',                      zh: '处于旺季的竹子长高了约 5 厘米。' },
+    { en: 'The ISS traveled ~700 km — Beijing to Shanghai.',          zh: '国际空间站飞过 700 公里——大约北京到上海。' },
+    { en: 'You took ~22 breaths; your lungs moved ~10 litres of air.',zh: '你呼吸了约 22 次，肺部吞吐了约 10 升空气。' },
+    { en: 'A cheetah at full sprint covered ~2.7 km.',                zh: '一头全速奔跑的猎豹跑过了 2.7 公里。' },
+  ],
+  120: [
+    { en: 'Earth rotated ~50 km along its equator.',                  zh: '地球绕轴自转，赤道走过了约 50 公里。' },
+    { en: 'Mars-bound radio signals covered ~36 million km.',         zh: '一束发往火星的无线电信号传播了约 3,600 万公里。' },
+    { en: 'A coral polyp added ~0.0007 mm to a reef.',                zh: '一颗珊瑚虫给礁体添了约 0.0007 毫米。' },
+    { en: 'A sloth moved its arm — once, slowly.',                    zh: '一只树懒缓缓抬了一次胳膊。' },
+    { en: 'Your stomach lining shed and renewed once.',               zh: '你的胃壁完成了一次脱落与再生。' },
+  ],
+  180: [
+    { en: 'You shared a 3-minute Beatles song with the universe.',    zh: '你与宇宙共度了 3 分钟——大约一首披头士的长度。' },
+    { en: 'A polar bear can hold its breath this long underwater.',   zh: '北极熊能在水下憋这么久的气。' },
+    { en: 'Three minutes after the Big Bang, the first atomic nuclei stabilized.', zh: '大爆炸后 3 分钟，最早的原子核稳定下来。' },
+    { en: 'A boiled egg became firm in the middle.',                  zh: '一颗水煮蛋的中心刚刚煮硬。' },
+  ],
+  300: [
+    { en: 'Light from Mars (at closest) reached us in this time.',    zh: '火星离地球最近时，它的光大概用了这么久才到。' },
+    { en: 'A redwood grew the width of a comma.',                     zh: '一棵红杉长出了约一个逗号的宽度。' },
+    { en: 'Your brain processed enough data to fill ~2 DVDs.',        zh: '你的大脑处理的信息量够灌满约两张 DVD。' },
+    { en: 'The Sun lost ~1.2 billion tons of mass to fusion.',        zh: '太阳因聚变损失了约 12 亿吨质量。' },
+  ],
+  600: [
+    { en: 'You spent enough time to read one short poem twenty times.', zh: '足够你把一首短诗读上二十遍。' },
+    { en: 'The Moon moved ~600 km across the night sky.',              zh: '月亮在夜空中划过了约 600 公里。' },
+    { en: 'About 1,500 babies were born; ~640 people passed.',         zh: '约有 1,500 个婴儿出生；约 640 人离世。' },
+  ],
+  1800: [
+    { en: 'Roughly a soccer half of universal time passed.',           zh: '与一场足球比赛上半场等长的时间过去了。' },
+    { en: '~90,000 cells in your body have been replaced.',            zh: '你体内约 9 万个细胞已经被替换。' },
+    { en: 'The ISS completed nearly one full orbit (~92 minutes).',    zh: '国际空间站接近完成一圈轨道（约 92 分钟）。' },
+  ]
+};
+
+function nearestFactBucket(elapsedSec) {
+  let best = FACT_BUCKETS[0];
+  let bestDiff = Math.abs(elapsedSec - best);
+  for (const b of FACT_BUCKETS) {
+    const d = Math.abs(elapsedSec - b);
+    if (d < bestDiff) { bestDiff = d; best = b; }
+  }
+  return best;
+}
+function pickFact(elapsedSec) {
+  const bucket = nearestFactBucket(elapsedSec);
+  const arr = FACTS[bucket] || [];
+  const fact = arr[Math.floor(Math.random() * arr.length)] || { en: '—', zh: '—' };
+  return { bucket, fact };
+}
+function formatDurationLabel(sec) {
+  if (LOCALE === 'zh') {
+    if (sec < 60)   return sec + ' 秒';
+    if (sec < 3600) return Math.round(sec / 60) + ' 分钟';
+    return (sec / 3600).toFixed(1) + ' 小时';
+  } else {
+    if (sec === 1)  return '1 second';
+    if (sec < 60)   return sec + ' seconds';
+    if (sec < 120)  return '1 minute';
+    if (sec < 3600) return Math.round(sec / 60) + ' minutes';
+    return (sec / 3600).toFixed(1) + ' hours';
+  }
+}
+const FACT_INTRO = {
+  en: 'In this span, the world quietly did this.',
+  zh: '在这段时光里，世界悄悄做了这些。'
 };
 
 // ============================================================
@@ -441,6 +641,10 @@ let topFloor = new Float32Array(NUM_COLS); // y where column's stack starts
 let botFloor = new Float32Array(NUM_COLS);
 let totalGrains = 0;
 
+function pickCycleDuration() {
+  cycleTargetSec = DURATION_POOL[Math.floor(Math.random() * DURATION_POOL.length)];
+}
+
 function rebuildPiles() {
   cxPx = FRAC.cx * stageSize;
   const maxHWPx = FRAC.maxHalfW * stageSize;
@@ -473,6 +677,10 @@ function rebuildPiles() {
   drainAccum = 0;
   avalAccum = 0;
   emptyTimer = 0;
+  // Re-derive drain rate from chosen cycle target duration
+  DRAIN_INTERVAL_MS = Math.max(20, (cycleTargetSec * 1000) / Math.max(1, totalGrains));
+  drainStartTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  cyclePhase = 'draining';
 }
 
 function computeStackBounds(xLocal, isUpper) {
@@ -561,17 +769,23 @@ function spawnFlipBurst() {
 // ============================================================
 // DRAIN + AVALANCHE
 // ============================================================
-const DRAIN_INTERVAL_MS = 75;
-const AVALANCHE_INTERVAL_MS = 24; // ≈ every frame
-const SLOPE_THRESHOLD = 1; // angle-of-repose: diff > 1 is unstable
-const POST_EMPTY_PAUSE_MS = 4500;
+// Each cycle has a randomly-chosen target drain duration.
+// DRAIN_INTERVAL_MS = targetSeconds * 1000 / totalTopGrains.
+const DURATION_POOL = [20, 30, 45, 60, 90, 120, 180]; // seconds, picked random per cycle
+let cycleTargetSec = 60;
+let DRAIN_INTERVAL_MS = 75;
+const AVALANCHE_INTERVAL_MS = 24;
+const SLOPE_THRESHOLD = 1;
+const POST_EMPTY_PAUSE_MS = 600;       // brief settle after drain before showing fact
+const FACT_DISPLAY_MS = 5400;          // how long the fact card stays up
 
 let drainAccum = 0;
 let avalAccum = 0;
 let emptyTimer = 0;
+let drainStartTime = 0;                // perf timestamp when current cycle started
 
 function tickDrain(dt) {
-  if (flipState.active) return;
+  if (cyclePhase !== 'draining') return;
   drainAccum += dt;
   while (drainAccum >= DRAIN_INTERVAL_MS) {
     drainAccum -= DRAIN_INTERVAL_MS;
@@ -719,65 +933,81 @@ function stepSparkles(dt) {
 }
 
 // ============================================================
-// AUTO-FLIP (bounded preload-safe attract)
+// CYCLE PHASE MACHINE
+//   draining → flipping → draining (next)
+// Fact card lives outside the phase machine — it updates atomically
+// at flip-trigger time and stays visible until the next flip.
 // ============================================================
+let cyclePhase = 'draining'; // 'draining' | 'flipping'
+let phaseTimer = 0;
+
 function tickAutoFlip(dt) {
-  if (flipState.active) return;
-  // Empty when no top grains AND no in-flight
+  if (cyclePhase !== 'draining') return;
   let topSum = 0;
   for (let i = 0; i < NUM_COLS; i++) topSum += topCols[i];
   if (topSum === 0 && inFlight.length === 0) {
     emptyTimer += dt;
     if (emptyTimer > POST_EMPTY_PAUSE_MS) {
-      startFlip();
+      triggerFlip();
     }
   } else {
     emptyTimer = 0;
   }
 }
 
-// ============================================================
-// FLIP
-// ============================================================
-const FLIP_DURATION_MS = 850;
-let flipState = { active: false, t: 0 };
-let stageFlipped = false; // tracks visual orientation
+function tickCycle(dt) {
+  if (cyclePhase === 'flipping') {
+    phaseTimer += dt;
+    if (phaseTimer >= FLIP_DURATION_MS) finishFlip();
+  }
+}
 
-function startFlip() {
-  if (flipState.active) return;
-  flipState = { active: true, t: 0 };
+function triggerFlip() {
+  // Allowed any time we're not mid-flip already. Updates the fact card
+  // (atomic content swap) and starts the visual rotation immediately —
+  // sand sim keeps running, so the new top picks up right away.
+  if (cyclePhase === 'flipping') return;
+  const elapsedSec = ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - drainStartTime) / 1000;
+  updateFactCard(elapsedSec);
   hideHint();
   spawnFlipBurst();
-  // Trigger CSS rotation
   stageFlipped = !stageFlipped;
-  stage.classList.toggle('is-flipping', !stageFlipped); // 180deg
-  stage.classList.toggle('is-flipped', stageFlipped);   // back to 0
+  stage.classList.toggle('is-flipped', stageFlipped);
+  cyclePhase = 'flipping';
+  phaseTimer = 0;
+}
+
+// ============================================================
+// FLIP (visual + state swap)
+// ============================================================
+const FLIP_DURATION_MS = 850;
+let flipState = { active: false, t: 0 }; // legacy, kept for spawnFlipBurst calls
+let stageFlipped = false;
+
+function startFlip() {
+  // Public entry point — user tap, sensor flip, auto-empty all funnel here.
+  triggerFlip();
 }
 function finishFlip() {
-  // After visual rotation, what was bottom becomes top.
-  // Because stage rotated, our canvas coords are visually mirrored.
-  // We "absorb" this by swapping col arrays so the rest of the sim sees
-  // a normal "top full / bottom empty" state on its own coord frame.
-  const t = topCols;
-  const tm = topMax;
-  topCols = botCols;
-  topMax = botMax;
-  botCols = t;
-  botMax = tm;
-  // BUT: visually after rotation, the new top is the rotated bottom — which
-  // contains whatever grains had collected. Visually that fills the new top.
-  // We want sim coords aligned: new top = (carryCount filled grains, lowest cols);
-  // We'll just reset the sim cleanly using the carry count.
+  // After visual rotation, what was bottom becomes top. Swap state arrays so
+  // sim coords realign, then reset for the next cycle.
+  const t = topCols, tm = topMax;
+  topCols = botCols; topMax = botMax;
+  botCols = t;       botMax = tm;
   let carry = 0;
   for (let i = 0; i < NUM_COLS; i++) carry += topCols[i];
-  // Reset cols to a clean centered fill of `carry` grains in the new top
   for (let i = 0; i < NUM_COLS; i++) { topCols[i] = 0; botCols[i] = 0; }
-  // Refill top: distribute carry into max-cols starting from center outward
   refillFromCenter(topCols, topMax, carry);
   inFlight.length = 0;
   drainAccum = 0;
   emptyTimer = 0;
+  phaseTimer = 0;
   flipState = { active: false, t: 0 };
+  // Begin a fresh cycle with a new random target duration
+  pickCycleDuration();
+  DRAIN_INTERVAL_MS = Math.max(20, (cycleTargetSec * 1000) / Math.max(1, carry || totalGrains));
+  drainStartTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  cyclePhase = 'draining';
 }
 function refillFromCenter(cols, maxes, count) {
   // Greedy: while count > 0, add 1 to the column with the *lowest* current
@@ -825,10 +1055,7 @@ function frame(now) {
   stepDust(dt);
   stepSparkles(dt);
   stepMotes(dt);
-  if (flipState.active) {
-    flipState.t += dt;
-    if (flipState.t >= FLIP_DURATION_MS) finishFlip();
-  }
+  tickCycle(dt);
   tickAutoFlip(dt);
 
   render(theme);
@@ -1298,12 +1525,6 @@ function setTheme(name) {
 function pointInStage(sx, sy) {
   return sx >= stageX && sx <= stageX + stageSize && sy >= stageY && sy <= stageY + stageSize;
 }
-function pointInCap(sx, sy) {
-  // Caps occupy roughly the top 10% and bottom 10% of the stage
-  if (!pointInStage(sx, sy)) return false;
-  const ly = sy - stageY;
-  return ly < stageSize * 0.13 || ly > stageSize * 0.87;
-}
 
 let hintGone = false;
 function hideHint() {
@@ -1318,21 +1539,25 @@ function showHint() {
   document.getElementById('hint').classList.add('is-visible');
 }
 
-stage.addEventListener('pointerdown', (ev) => {
+// Any tap on the stage (anywhere on the hourglass) triggers a flip-with-fact.
+// During drain: shows fact based on elapsed seconds, then visual flip.
+// During fact display: skips the wait and starts the visual flip now.
+// During flip: ignored.
+function onAnyPointerDown(ev) {
   ev.preventDefault();
   const sx = ev.clientX;
   const sy = ev.clientY;
   if (!aigramActive && !sensorActive) {
     requestIosPermsIfNeeded().then((ok) => { if (ok) bindDomSensors(); });
   }
-  if (pointInCap(sx, sy)) {
-    startFlip();
-    return;
+  // Light sparkle ambient feedback at tap point inside the stage
+  if (pointInStage(sx, sy)) {
+    spawnSparkle(sx - stageX, sy - stageY);
   }
-  // Tap on the body → sparkle at local coords (canvas coord = sx-stageX, sy-stageY)
-  spawnSparkle(sx - stageX, sy - stageY);
   hideHint();
-});
+  startFlip();
+}
+stage.addEventListener('pointerdown', onAnyPointerDown);
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 document.getElementById('switcher').addEventListener('pointerdown', (ev) => {
   const btn = ev.target.closest('.switcher-btn');
@@ -1354,21 +1579,62 @@ function fmtTime() {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 function refreshClimateAndTemp() {
-  const t = THEMES[currentTheme];
-  elClim.textContent = t.climate[Math.floor(Math.random() * t.climate.length)];
-  elTemp.textContent = t.temps[Math.floor(Math.random() * t.temps.length)];
+  const th = THEMES[currentTheme];
+  elClim.textContent = t(th.climate[Math.floor(Math.random() * th.climate.length)]);
+  elTemp.textContent = th.temps[Math.floor(Math.random() * th.temps.length)];
 }
 function tickStatus() { elTime.textContent = fmtTime(); }
 let poemIndex = 0;
 function cycleNextPoem(immediate) {
-  const t = THEMES[currentTheme];
-  poemIndex = (poemIndex + 1) % t.poems.length;
+  const th = THEMES[currentTheme];
+  poemIndex = (poemIndex + 1) % th.poems.length;
   const delay = immediate ? 200 : 1500;
   elPoem.classList.remove('is-visible');
   setTimeout(() => {
-    elPoem.textContent = t.poems[poemIndex];
+    elPoem.textContent = t(th.poems[poemIndex]);
     elPoem.classList.add('is-visible');
   }, delay);
+}
+
+// ============================================================
+// FACT CARD — show after drain, hide when flip begins.
+// ============================================================
+const elFactCard     = document.getElementById('fact-card');
+const elFactDuration = document.getElementById('fc-duration');
+const elFactBody     = document.getElementById('fc-body');
+const elFactSub      = document.getElementById('fc-sub');
+
+// Update the persistent fact card with a fresh fact. If it's already visible,
+// do a quick fade-out → swap text → fade-in for a clean transition; otherwise
+// just fade in. The card never auto-hides — it stays until the next flip.
+let factSwapToken = 0;
+function updateFactCard(elapsedSec) {
+  const { bucket, fact } = pickFact(elapsedSec);
+  const durationText = formatDurationLabel(bucket);
+  const bodyText     = t(fact);
+  const myToken = ++factSwapToken;
+  document.body.classList.add('has-fact');
+
+  const isVisible = elFactCard.classList.contains('is-visible');
+  if (isVisible) {
+    elFactCard.classList.remove('is-visible');
+    setTimeout(() => {
+      if (myToken !== factSwapToken) return; // a newer swap superseded us
+      elFactDuration.textContent = durationText;
+      elFactBody.textContent     = bodyText;
+      elFactSub.textContent      = t(FACT_INTRO);
+      elFactCard.classList.add('is-visible');
+    }, 480);
+  } else {
+    elFactDuration.textContent = durationText;
+    elFactBody.textContent     = bodyText;
+    elFactSub.textContent      = t(FACT_INTRO);
+    requestAnimationFrame(() => elFactCard.classList.add('is-visible'));
+  }
+}
+function hideFactCard() {
+  elFactCard.classList.remove('is-visible');
+  document.body.classList.remove('has-fact');
 }
 
 // ============================================================
@@ -1380,9 +1646,13 @@ function isPosterMode() {
 }
 function init() {
   if (isPosterMode()) document.body.classList.add('is-poster');
+  pickCycleDuration();
   resize();
   window.addEventListener('resize', resize);
   setTheme('sahara');
+  // Bilingual hint
+  const hintTextEl = document.getElementById('hint-text');
+  hintTextEl.textContent = t({ en: 'Tap to flip', zh: '点屏幕翻沙漏' });
 
   tickStatus();
   setInterval(tickStatus, 30000);
