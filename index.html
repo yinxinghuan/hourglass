@@ -160,6 +160,46 @@
   .hint.is-gone { opacity: 0; animation: none; }
   @keyframes hintBreathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
+  /* Flip / sensor hint — appears after the first tap fades the primary
+     "Tap to flip" hint. Material Icons screen_rotation + swing animation. */
+  .flip-hint {
+    position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+    z-index: 6; pointer-events: none;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  .flip-hint.is-visible { opacity: 1; }
+  .flip-hint__icon {
+    width: 56px; height: 56px;
+    transform-origin: 50% 60%;
+    animation: hgFlipSwing 1.6s ease-in-out infinite;
+  }
+  .flip-hint__icon svg {
+    width: 100%; height: 100%;
+    fill: rgba(30, 32, 44, 0.92);
+    filter:
+      drop-shadow(0 0 5px rgba(255, 255, 255, 0.95))
+      drop-shadow(0 0 1px rgba(255, 255, 255, 0.95))
+      drop-shadow(0 2px 3px rgba(0, 0, 0, 0.30));
+  }
+  .flip-hint__label {
+    margin-top: 20px;
+    font-size: 11px; letter-spacing: 0.36em; text-transform: uppercase;
+    color: rgba(30, 30, 42, 0.90);
+    text-shadow:
+      0 0 4px rgba(255, 255, 255, 0.95),
+      0 0 10px rgba(255, 255, 255, 0.65),
+      0 1px 2px rgba(0, 0, 0, 0.20);
+    animation: hintBreathe 2.6s ease-in-out infinite;
+  }
+  @keyframes hgFlipSwing {
+    0%, 100% { transform: rotate(-18deg); }
+    50%      { transform: rotate(18deg); }
+  }
+  body.is-poster .flip-hint { display: none; }
+
   /* Fact card — persistent block above status; updated on each flip */
   .fact-card {
     position: absolute;
@@ -269,6 +309,15 @@
   <div class="hint" id="hint">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3-3 3 3"/><path d="M12 8v8"/><circle cx="12" cy="12" r="10"/></svg>
     <span id="hint-text">Tap to flip</span>
+  </div>
+
+  <!-- Sensor hint: shown after the first tap if the device has any chance
+       of delivering motion data. Material Icons "screen_rotation". -->
+  <div class="flip-hint" id="flipHint">
+    <div class="flip-hint__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 18.29 0 12 0l-.66.03 3.81 3.81 1.33-1.32zm-6.25-.77c-.59-.59-1.54-.59-2.12 0L1.75 8.11c-.59.59-.59 1.54 0 2.12l12.02 12.02c.59.59 1.54.59 2.12 0l6.36-6.36c.59-.59.59-1.54 0-2.12L10.23 1.75zm4.6 19.44L2.81 9.17l6.36-6.36 12.02 12.02-6.36 6.36zm-7.31.29C4.25 19.94 1.91 16.76 1.55 13H.05C.56 19.16 5.71 24 12 24l.66-.03-3.81-3.81-1.33 1.32z"/></svg>
+    </div>
+    <div class="flip-hint__label" id="flipHintLabel">Flip phone to turn</div>
   </div>
 
   <div class="fact-card" id="fact-card">
@@ -2239,6 +2288,8 @@ function applyAccel(ax, ay, az) {
       if (zFlipDetector.accum > 3 && Math.abs(az) > 6) {
         lastZSign = zSign;
         zFlipDetector.accum = 0;
+        // Sensor-driven flip means the player figured it out — kill the hint.
+        if (flipHintShown && !flipHintHidden) hideFlipHint();
         startFlip();
       }
     } else {
@@ -2336,6 +2387,8 @@ function pointInStage(sx, sy) {
 }
 
 let hintGone = false;
+let flipHintShown = false;
+let flipHintHidden = false;
 function hideHint() {
   if (hintGone) return;
   hintGone = true;
@@ -2346,6 +2399,31 @@ function hideHint() {
 function showHint() {
   if (hintGone) return;
   document.getElementById('hint').classList.add('is-visible');
+}
+function maybeShowFlipHint() {
+  if (flipHintShown || flipHintHidden) return;
+  const hasSensorPath =
+    (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.Accelerometer) ||
+    (typeof DeviceMotionEvent !== 'undefined') ||
+    aigramActive;
+  if (!hasSensorPath) return;
+  const el = document.getElementById('flipHint');
+  if (!el) return;
+  el.classList.add('is-visible');
+  flipHintShown = true;
+  // 7s hard fallback
+  setTimeout(() => {
+    if (!flipHintHidden) {
+      el.classList.remove('is-visible');
+      flipHintHidden = true;
+    }
+  }, 7000);
+}
+function hideFlipHint() {
+  if (flipHintHidden) return;
+  flipHintHidden = true;
+  const el = document.getElementById('flipHint');
+  if (el) el.classList.remove('is-visible');
 }
 
 // Any tap on the stage (anywhere on the hourglass) triggers a flip-with-fact.
@@ -2365,6 +2443,8 @@ function onAnyPointerDown(ev) {
     spawnSparkle(sx - stageX, sy - stageY);
   }
   hideHint();
+  // Introduce the sensor mechanic 0.9s after the primary tap hint fades.
+  setTimeout(maybeShowFlipHint, 900);
   startFlip();
 }
 stage.addEventListener('pointerdown', onAnyPointerDown);
